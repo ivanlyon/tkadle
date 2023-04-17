@@ -25,7 +25,7 @@ exec wish "$0" -- "$@"
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 ###############################################################################
 
-# Usage of TCL OO classes necessitates at least version 8.6
+# Presence of TCL OO classes necessitates at least version 8.6
 if {[catch {package require Tcl 8.6}]} {
     puts stderr "tkadle requires Tcl 8.6 or higher."
     puts stderr "Detected Tcl version: [info tclversion]"
@@ -56,7 +56,7 @@ for {set argIndex 0} {$argIndex < $argc} {incr argIndex} {
 }
 
 if {$commandError || ($commandFile eq "")} {
-    puts "Usage: tkadle.tcl \[-syn asciidoc|markdown\] ?filename?"
+    puts "Usage: tkadle.tcl \[-syn asciidoc|markdown\] filename"
     exit
 }
 
@@ -111,9 +111,9 @@ oo::class create HexadecIcon {
     }
 
     method map {lo hi result} {
-        scan [string repeat $lo 2] "%2x" decLo
-        scan [string repeat $hi 2] "%2x" decHi
-        scan [string repeat $result 2] "%2x" decResult
+        scan $lo$lo %2x decLo
+        scan $hi$hi %2x decHi
+        scan $result$result %2x decResult
         for {set y 0} {$y < $BaseSide} {incr y} {
             for {set x 0} {$x < $BaseSide} {incr x} {
                 set colors [split [$ImageName get $x $y]]
@@ -1833,7 +1833,7 @@ namespace eval Selection {
             Gui::mode "EDIT"
             set Treeview::buffer(edit) [.f.tvList item $selected -text]
             .lfEdit.t replace 1.0 end $Treeview::buffer(edit)
-            .f.tvList item $selected -text "** UNDER CONSTRUCTION **"
+            .f.tvList item $selected -text "<!-- UNDER CONSTRUCTION -->"
             update
             .f.tvList see $selected
             .f.tvList state disabled
@@ -2302,7 +2302,7 @@ proc ScrollbarOnDemand {sb lo hi} {
 # Set tkadle window title using opened file name, if available.
 #----------------------------------------------------------------------------
 proc SetWindowTitle {dirty} {
-    global appIcon pendIcon yellowIcon updatedList
+    global savedIcon openedIcon changedIcon updatedList
 
     set fname [ListFileIO::nameLocation]
     if {$fname ne ""} {
@@ -2311,13 +2311,13 @@ proc SetWindowTitle {dirty} {
 
     if {$dirty} {
         set updatedList true
-        wm iconphoto . -default [$yellowIcon getSize 32]
+        wm iconphoto . -default [$changedIcon getSize 32]
         wm title . [string cat "*" $fname "tkadle"]
     } elseif {$updatedList} {
-        wm iconphoto . -default [$appIcon getSize 32]
+        wm iconphoto . -default [$savedIcon getSize 32]
         wm title . [string cat $fname "tkadle"]
     } else {
-        wm iconphoto . -default [$pendIcon getSize 32]
+        wm iconphoto . -default [$openedIcon getSize 32]
         wm title . [string cat $fname "tkadle"]
     }
     return
@@ -2425,16 +2425,16 @@ set IconHexMap {
         00000000000000000000000000000000
 }
 if {[ListFileIO::writable]} {
-    set appIcon [HexadecIcon new $IconHexMap G]
-    set pendIcon [HexadecIcon new $IconHexMap G]
+    set savedIcon [HexadecIcon new $IconHexMap G]
+    set openedIcon [HexadecIcon new $IconHexMap G]
 } else {
-    set appIcon [HexadecIcon new $IconHexMap R]
-    set pendIcon [HexadecIcon new $IconHexMap R]
+    set savedIcon [HexadecIcon new $IconHexMap R]
+    set openedIcon [HexadecIcon new $IconHexMap R]
 }
-$pendIcon map "8" "F" "2"
-$pendIcon map "1" "1" "F"
-set yellowIcon [HexadecIcon new $IconHexMap RG]
-$yellowIcon map "E" "E" "1"
+$openedIcon map "E" "F" "2"
+$openedIcon map "1" "1" "F"
+set changedIcon [HexadecIcon new $IconHexMap RG]
+$changedIcon map "E" "E" "1"
 set updatedList false
 SetWindowTitle false
 
@@ -2473,8 +2473,8 @@ Help::bindTip .lfEdit.t <Control-less>    {Selection::split} "Split edit item cu
 
 Help::bindTip .f.tvList <Shift-Up>        {Gui::listMode Selection::shiftUp} "Move selected item up one position"
 Help::bindTip .f.tvList <Shift-Down>      {Gui::listMode Selection::shiftDown} "Move selected item down one position"
-Help::bindTip .f.tvList <Shift-Left>      {Gui::listMode Selection::shiftLeft} "Promote selected item 1 level"
-Help::bindTip .f.tvList <Shift-Right>     {Gui::listMode Selection::shiftRight} "Demote selected item 1 level"
+Help::bindTip .f.tvList <Shift-Left>      {Gui::listMode Selection::shiftLeft} "Promote selected item"
+Help::bindTip .f.tvList <Shift-Right>     {Gui::listMode Selection::shiftRight} "Demote selected item"
 
 bind . <<Copy>>                           {Gui::listMode Selection::copy}
 bind . <<Cut>>                            {Gui::listMode Selection::cut}
