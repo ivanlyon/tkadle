@@ -40,7 +40,7 @@ for {set argIndex 0} {$argIndex < $argc} {incr argIndex} {
         "-syn" {
             incr argIndex
             if {$paradigm eq ""} {
-                set paradigm [lindex $argv $argIndex]
+                set paradigm [string toupper [lindex $argv $argIndex]]
             } else {
                 set commandError 1
             }
@@ -56,7 +56,7 @@ for {set argIndex 0} {$argIndex < $argc} {incr argIndex} {
 }
 
 if {$commandError || ($commandFile eq "")} {
-    puts "Usage: tkadle.tcl \[-syn asciidoc|markdown\] filename"
+    puts "Usage: tkadle.tcl \[-syn asciidoc|adoc|markdown|md\] filename"
     exit
 }
 
@@ -2339,10 +2339,22 @@ package require Tk
 set ConfigFile "~/.tkadle"
 set delayID None
 
+# Handle syntax options
 switch -exact -- $paradigm {
-    "asciidoc" {set openFile [  ADocFormat new]}
-    "markdown" {set openFile [    MDFormat new]}
-    default    {set openFile [LineItemList new]}
+    "ADOC" {set paradigm "ASCIIDOC"}
+    "MD"   {set paradigm "MARKDOWN"}
+}
+
+switch -exact -- $paradigm {
+    "ASCIIDOC" {set openFile [  ADocFormat new]}
+    "MARKDOWN" {set openFile [    MDFormat new]}
+    default    {
+        if {$paradigm ne ""} {
+            puts "Usage: tkadle.tcl \[-syn asciidoc|adoc|markdown|md\] filename"
+            exit
+        }
+        set openFile [LineItemList new]
+    }
 }
 Preferences::load
 

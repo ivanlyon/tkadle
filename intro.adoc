@@ -1,7 +1,6 @@
-// tkadle tclversion:8.6 hostname:GT60 os:Linux user:robert 2023-04-15T21:05:42
-
 * To tkadle this file, use the command "tkadle.tcl -syn asciidoc intro.adoc"
 * To expand all folded items in tkadle, press "+" a few times
+* Keyboard arrow keys are the intended means of navigating the list
 * Press F1 to see a help dialog
 * Alternate views of the tkadle gui
     ** <Control+D> displays the Deleted items per session (Empty at start)
@@ -28,6 +27,7 @@
     ** Selected tree item ID is brute forced every time...do not know a better way
     ** Single file source code seems best...so far
     ** List file syntax chosen at program start, and considered immutable
+    ** Double click on the list may be trained with multiple expectations, (1) select a word, (2) edit a list item. So double click is not handled.
 * Future work
     ** Custom color schemes (Already tried, but empty treeview space is always white)
     ** Custom fonts (Somebody, somewhere, is going to ask for monospace)
@@ -35,3 +35,4 @@
     ** Porting to Windows and MacOS
     ** Figure out if the "Export" functionality is as cool as I think it is
     ** Slide show of (Every node with descendents) or (Every top level node)
+    ** Provide a quick view of elided list items (Balloon, or separate pane by hotkey)
