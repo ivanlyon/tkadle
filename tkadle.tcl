@@ -1497,6 +1497,14 @@ namespace eval Preferences {
         }
         pack $result.sort -side top -fill x -pady 4
 
+        frame $result.offsetY
+        label $result.offsetY.lbl -text "tkadle application window vertical offset (Pixels): "
+        spinbox $result.offsetY.sp -from 0 -to 200 -validate key \
+                -vcmd {string is integer %P} -textvariable Prefs(guiOffsetY)
+        pack $result.offsetY.lbl -side left
+        pack $result.offsetY.sp -side left -fill x
+        pack $result.offsetY -side top -fill x
+
         return $result
     }
 
@@ -1518,6 +1526,7 @@ namespace eval Preferences {
         set Prefs(exportPeriods) 1
         set Prefs(exportSentCap) 1
         set Prefs(geometry) 640x480
+        set Prefs(guiOffsetY) 10
         set Prefs(insertDest) after
         set Prefs(khjl) 0
         set Prefs(sort) dictionary
@@ -2453,7 +2462,15 @@ grid columnconfigure . 0 -weight 1
 set Gui::current "LIST"
 Treeview::clear
 $openFile labelLogo .statusbar.badge
-wm geometry . $Prefs(geometry)
+
+set priorGeo [split $Prefs(geometry) +x]
+set offsetY [expr {[lindex $priorGeo end] - $Prefs(guiOffsetY)}]
+if {$offsetY < 0} {
+    set offsetY 0
+}
+set newGeo [join [lrange $priorGeo 0 1] "x"]
+set newGeo [join [list $newGeo [lindex $priorGeo 2] $offsetY] "+"]
+wm geometry . $newGeo
 ListFileIO::loadFile [file normalize $commandFile]
 
 set IconHexMap {
