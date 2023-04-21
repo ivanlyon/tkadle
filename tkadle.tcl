@@ -7,9 +7,7 @@ exec wish "$0" -- "$@"
 #           named as a "AsciiDoc List Editor" for creation and modification
 #           of AsciiDoc list text files. For ease of deployment, tcllib and
 #           other external packages are avoided.
-#
-# Copyright (C) 2022-2023 Robert Lyon
-###############################################################################
+################################################################################
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
