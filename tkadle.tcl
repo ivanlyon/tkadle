@@ -737,33 +737,22 @@ namespace eval Export {
     proc FormatNonPara {nodeID selected} {
         global Prefs
         set text [FormatPara $nodeID $selected]
-        set result "<br><div>"
-        switch -exact -- $Prefs(exportAncestry) {
-            "bold" {
-                append result [format "<b>%s</b>" $text]
-            }
-            "italics" {
-                append result [format "<i>%s</i>" $text]
-            }
-            "underline" {
-                append result [format "<u>%s</u>" $text]
-            }
-            default {
-                set result ""
+        foreach {val start end} { "Bold"      "<b>" "</b>"
+                                  "Italics"   "<i>" "</i>"
+                                  "Underline" "<u>" "</u>" } {
+            if {$Prefs(exportNonPara$val)} {
+                set text [string cat $start $text $end]
             }
         }
-        if {$result ne ""} {
-            append result "</div><br>"
-        }
-        return $result
+        return [string cat "<br><div>" $text "</br></div>"]
     }
 
     proc FormatPara {nodeID selected} {
         global Prefs
-
         set sentence [.f.tvList item $nodeID -text]
         set tr [string trimright $sentence]
         if {$tr ne ""} {
+            set tr [string map {"<" "&lt;" ">" "&gt;" "&" "&amp;"} $tr]
             if {$Prefs(exportPeriods)} {
                 if {[string index $tr end] ne "."} {
                     set sentence [string cat $tr "."]
@@ -783,46 +772,15 @@ namespace eval Export {
 
     proc gui {} {
         global Prefs
-
-        set contents { "parentless" "Leaf nodes without parent"
-                       "parented"   "Leaf nodes prefaced by parent" }
-        set styles { "block"  "Block"
-                     "indent" "Indented" }
         labelframe .f.export -text "Export" -padx 2 -pady 2
-        labelframe .f.export.par -text "Paragraph" -padx 2 -pady 2
-        pack .f.export.par -side top -fill x
-        checkbutton .f.export.par.end -variable Prefs(exportPeriods) \
-                -text "Ensure every exported item ends with period."
-        grid .f.export.par.end -row 0 -column 0 -columnspan 2 -sticky w
-        checkbutton .f.export.par.cap -variable Prefs(exportSentCap) \
-                -text "Ensure sentence capitalization."
-        grid .f.export.par.cap -row 1 -column 0 -columnspan 2 -sticky w
-        labelframe .f.export.par.content -text "Content" -padx 2 -pady 2
-        grid .f.export.par.content -row 2 -column 0 -sticky w -padx 2
-        foreach {val legend} $contents {
-            radiobutton .f.export.par.content.$val -text $legend -value $val \
-                    -variable Prefs(exportParaContent)
-            pack .f.export.par.content.$val -side top -anchor w
-        }
-        labelframe .f.export.par.style -text "Style" -padx 2 -pady 2
-        grid .f.export.par.style -row 2 -column 1 -sticky w -padx 2
-        foreach {val legend} $styles {
-            radiobutton .f.export.par.style.$val -text $legend -value $val \
-                    -variable Prefs(exportParaStyle)
-            pack .f.export.par.style.$val -side top -anchor w
-        }
 
-        set ancestry { "none"      "Do not export"
-                       "bold"      "Show each item in line of bold text"
-                       "italics"   "Show each item in line of italics text"
-                       "underline" "Show each item underlined" }
-        labelframe .f.export.non -text "Non-paragraphed items" -padx 2 -pady 2
+        labelframe .f.export.par -pady 2
+        pack .f.export.par -side top -fill x
+        Export::GuiPara .f.export.par
+
+        labelframe .f.export.non -padx 2 -pady 2
         pack .f.export.non -side top -fill x
-        foreach {val legend} $ancestry {
-            radiobutton .f.export.non.$val -text $legend -value $val \
-                    -variable Prefs(exportAncestry)
-            pack .f.export.non.$val -side top -anchor w
-        }
+        Export::GuiNonPara .f.export.non
 
         frame .f.export.hilite -padx 2 -pady 2
         button .f.export.hilite.btn -text "Set HTML highlight color..." \
@@ -844,11 +802,89 @@ namespace eval Export {
         frame .f.export.sep -relief groove -borderwidth 2 -width 2 -height 2
         pack .f.export.sep -side bottom -fill x -pady 3
 
+        Export::LFrameToggle .f.export.non exportNonParagraph
+        Export::LFrameToggle .f.export.par exportParagraph
+
+        return
+    }
+
+    proc GuiNonPara {w} {
+        global Prefs
+        set ancestry { "Bold"      "Add bold style"
+                       "Italics"   "Add italics style"
+                       "Underline" "Add underlined style" }
+
+        checkbutton $w.cb -text "Non-Paragraph items" \
+                -variable Prefs(exportNonParagraph) \
+                -command "Export::LFrameToggle $w exportNonParagraph"
+        $w configure -labelwidget $w.cb
+
+        label $w.legend -text "Description: Each list item not designated paragraph content will appear on its own line."
+        pack $w.legend -side top -anchor w
+        foreach {val legend} $ancestry {
+            checkbutton $w.exportNonPara$val -text $legend \
+                    -variable Prefs(exportNonPara$val)
+            pack $w.exportNonPara$val -side top -anchor w
+        }
+
+        return
+    }
+
+    proc GuiPara {w} {
+        global Prefs
+        set contents { "parentless" "Leaf items"
+                       "parented"   "Single ancestor and leaf items" }
+        set styles { "block"  "Block"
+                     "indent" "Indented" }
+
+        checkbutton $w.cb -text "Paragraph items" \
+                -variable Prefs(exportParagraph) \
+                -command "Export::LFrameToggle $w exportParagraph"
+        $w configure -labelwidget $w.cb
+
+        label $w.legend -text "Description: Exported sibling leaf nodes (And optionally one ancestor) are catenated."
+        grid $w.legend -row 0 -column 0 -columnspan 2 -sticky w
+        labelframe $w.content -text "Content" -padx 2 -pady 2
+        grid $w.content -row 1 -column 0 -sticky w -padx 2
+        foreach {val legend} $contents {
+            radiobutton $w.content.$val -text $legend -value $val \
+                    -variable Prefs(exportParaContent)
+            pack $w.content.$val -side top -anchor w
+        }
+        labelframe $w.style -text "Style" -padx 2 -pady 2
+        grid $w.style -row 1 -column 1 -sticky w -padx 2
+        foreach {val legend} $styles {
+            radiobutton $w.style.$val -text $legend -value $val \
+                    -variable Prefs(exportParaStyle)
+            pack $w.style.$val -side top -anchor w
+        }
+        checkbutton $w.end -variable Prefs(exportPeriods) \
+                -text "Ensure every exported item ends with period."
+        grid $w.end -row 2 -column 0 -columnspan 2 -sticky w
+        checkbutton $w.cap -variable Prefs(exportSentCap) \
+                -text "Ensure sentence capitalization."
+        grid $w.cap -row 3 -column 0 -columnspan 2 -sticky w
         return
     }
 
     proc hide {} {
         pack forget .f.export
+        return
+    }
+
+    proc LFrameToggle {w enable} {
+        global Prefs
+        foreach child [winfo children $w] {
+            if {[llength [winfo children $child]]} {
+                Export::LFrameToggle $child $enable
+            } elseif {$child != "$w.cb"} {
+                if {$Prefs($enable)} {
+                    $child configure -state normal
+                } else {
+                    $child configure -state disabled
+                }
+            }
+        }
         return
     }
 
@@ -870,7 +906,13 @@ namespace eval Export {
             puts $fp "</style>"
             puts $fp "</head>"
             puts $fp "<body>"
-            Export::SaveHTMLChildren $fp {} [.f.tvList selection]
+
+            if {$Prefs(exportNonParagraph) || $Prefs(exportParagraph)} {
+                Export::SaveHTMLChildren $fp {} [.f.tvList selection]
+            } else {
+                puts $fp "<p>NOTICE: No content selected for export</p>"
+            }
+
             puts $fp "</body>\n</html>"
         close $fp
         Preferences::save
@@ -895,27 +937,31 @@ namespace eval Export {
                     if {$moreDepth} {
                         SaveHTMLNonParagraph $fp $saving $further $selected
                     } else {
-                        set topicSentence ""
-                        if {$Prefs(exportParaContent) eq "parented"} {
-                            append topicSentence [Export::FormatPara $parentID $selected]
+                        if {$Prefs(exportParagraph)} {
+                            set topicSentence ""
+                            if {$Prefs(exportParaContent) eq "parented"} {
+                                append topicSentence [Export::FormatPara $parentID $selected]
+                            }
+                            puts $fp [format "    <p>%s" $topicSentence]
+                            puts $fp [Export::FormatPara $saving $selected]
                         }
-                        puts $fp [format "    <p>%s" $topicSentence]
-                        puts $fp [Export::FormatPara $saving $selected]
                         set state "PARAGRAPH"
                     }
                 }
                 "PARAGRAPH" {
                     if {$moreDepth} {
-                        puts $fp "    </p>"
-                        SaveHTMLNonParagraph $fp $saving $further $selected
+                        if {$Prefs(exportParagraph)} {
+                            puts $fp "    </p>"
+                        }
                         set state "NONPARAGRAPH"
-                    } else {
+                        SaveHTMLNonParagraph $fp $saving $further $selected
+                    } elseif {$Prefs(exportParagraph)} {
                         puts $fp [Export::FormatPara $saving $selected]
                     }
                 }
             }
         }
-        if {$state == "PARAGRAPH"} {
+        if {($state == "PARAGRAPH") && ($Prefs(exportParagraph))} {
             puts $fp "    </p>"
         }
         return
@@ -934,16 +980,17 @@ namespace eval Export {
 
     proc SaveHTMLNonParagraph {fp parentID further selected} {
         global Prefs
-
-        set printSeparate true
-        foreach node $further {
-            if {[llength [.f.tvList children $node]] == 0} {
-                set printSeparate false
-                break
+        if {$Prefs(exportNonParagraph)} {
+            set printSeparate true
+            foreach node $further {
+                if {[llength [.f.tvList children $node]] == 0} {
+                    set printSeparate false
+                    break
+                }
             }
-        }
-        if {$printSeparate || $Prefs(exportParaContent) eq "parentless"} {
-            puts $fp [FormatNonPara $parentID $selected]
+            if {$printSeparate || $Prefs(exportParaContent) eq "parentless"} {
+                puts $fp [FormatNonPara $parentID $selected]
+            }
         }
         Export::SaveHTMLChildren $fp $parentID $selected
         return
@@ -1449,10 +1496,14 @@ namespace eval Preferences {
 
     proc load {} {
         global ConfigFile Prefs openFile
-        set Prefs(exportAncestry) bold
         set Prefs(exportHilight) #BFB
-        set Prefs(exportParaStyle) indent
+        set Prefs(exportNonParaBold) 0
+        set Prefs(exportNonParagraph) 1
+        set Prefs(exportNonParaItalics) 1
+        set Prefs(exportNonParaUnderline) 0
         set Prefs(exportParaContent) parentless
+        set Prefs(exportParagraph) 1
+        set Prefs(exportParaStyle) indent
         set Prefs(exportPeriods) 1
         set Prefs(exportSentCap) 1
         set Prefs(geometry) 640x480

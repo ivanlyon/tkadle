@@ -19,4 +19,4 @@
 * List file is automatically saved when application is idle
 * Escape key can be used to return to list view from any alternate view
 * List file syntax glyphs and indentation may be modified (Using Options view)
-* Text can be copy and pasted from/to tkadle using <Control> + C and V
+* Copy & paste text from/to "tkadle" using <Control> + C and V
