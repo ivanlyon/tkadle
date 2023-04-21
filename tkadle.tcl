@@ -34,12 +34,12 @@ if {[catch {package require Tcl 8.6}]} {
 
 set commandError 0
 set commandFile ""
-set paradigm ""
+set paradigm "LINELIST"
 for {set argIndex 0} {$argIndex < $argc} {incr argIndex} {
     switch -exact [lindex $argv $argIndex] {
         "-syn" {
             incr argIndex
-            if {$paradigm eq ""} {
+            if {$paradigm eq "LINELIST"} {
                 set paradigm [string toupper [lindex $argv $argIndex]]
             } else {
                 set commandError 1
@@ -53,6 +53,17 @@ for {set argIndex 0} {$argIndex < $argc} {incr argIndex} {
             }
         }
     }
+}
+
+# Handle syntax option via file extension
+switch -exact -- $paradigm {
+    "ADOC" {set paradigm "ASCIIDOC"}
+    "MD"   {set paradigm "MARKDOWN"}
+}
+
+if {$paradigm ni [list "ASCIIDOC" "LINELIST" "MARKDOWN"]} {
+    puts "Invalid syntax option detected"
+    set commandError 1
 }
 
 if {$commandError || ($commandFile eq "")} {
@@ -140,7 +151,7 @@ oo::class create LineItemList {
         global Prefs
         set Constant(descriptionsMax) 0
         set Constant(indentMin) -1
-        set Constant(legend) "LineItem"
+        set Constant(legend) "LineList"
         set Constant(logo) [list "\u2261" black red]
         set Constant(structured) false
         # Default values follow this line:
@@ -744,7 +755,7 @@ namespace eval Export {
                 set text [string cat $start $text $end]
             }
         }
-        return [string cat "<br><div>" $text "</br></div>"]
+        return [string cat "    <br><div>" $text "</div><br>"]
     }
 
     proc FormatPara {nodeID selected} {
@@ -767,7 +778,7 @@ namespace eval Export {
                 set sentence "<span style=$needle>$sentence</span>"
             }
         }
-        return $sentence
+        return [string cat "        " $sentence]
     }
 
     proc gui {} {
@@ -988,7 +999,7 @@ namespace eval Export {
                     break
                 }
             }
-            if {$printSeparate || $Prefs(exportParaContent) eq "parentless"} {
+            if {$printSeparate || ($Prefs(exportParaContent) eq "parentless")} {
                 puts $fp [FormatNonPara $parentID $selected]
             }
         }
@@ -2390,21 +2401,13 @@ package require Tk
 set ConfigFile "~/.tkadle"
 set delayID None
 
-# Handle syntax options
-switch -exact -- $paradigm {
-    "ADOC" {set paradigm "ASCIIDOC"}
-    "MD"   {set paradigm "MARKDOWN"}
-}
-
 switch -exact -- $paradigm {
     "ASCIIDOC" {set openFile [  ADocFormat new]}
+    "LINELIST" {set openFile [LineItemList new]}
     "MARKDOWN" {set openFile [    MDFormat new]}
     default    {
-        if {$paradigm ne ""} {
-            puts "Usage: tkadle.tcl \[-syn asciidoc|adoc|markdown|md\] filename"
-            exit
-        }
-        set openFile [LineItemList new]
+        puts "Usage: tkadle.tcl \[-syn asciidoc|adoc|markdown|md\] filename"
+        exit
     }
 }
 Preferences::load
