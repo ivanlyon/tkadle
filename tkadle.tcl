@@ -60,12 +60,12 @@ switch -exact -- $paradigm {
 }
 
 if {$paradigm ni [list "ASCIIDOC" "LINELIST" "MARKDOWN"]} {
-    puts "Invalid syntax option detected"
+    puts stderr "Invalid syntax option detected"
     set commandError 1
 }
 
 if {$commandError || ($commandFile eq "")} {
-    puts "Usage: tkadle.tcl \[-syn asciidoc|adoc|markdown|md\] filename"
+    puts stderr "Usage: tkadle.tcl \[-syn asciidoc|adoc|markdown|md\] filename"
     exit
 }
 
@@ -761,7 +761,6 @@ namespace eval Export {
         set sentence [.f.tvList item $nodeID -text]
         set tr [string trimright $sentence]
         if {$tr ne ""} {
-            set tr [string map {"<" "&lt;" ">" "&gt;" "&" "&amp;"} $tr]
             if {$Prefs(exportPeriods)} {
                 if {[string index $tr end] ne "."} {
                     set sentence [string cat $tr "."]
@@ -902,6 +901,7 @@ namespace eval Export {
         set targetFile [file rootname $ListFileIO::filename].html
         set fp [open $targetFile w]
             puts $fp "<html><head>"
+            puts $fp "    <meta charset=\"utf-8\">"
             puts $fp [format "<!-- %s -->" [SaveComment $targetFile]]
             puts $fp [format "<title>%s</title>" [file tail $targetFile]]
             puts $fp "<style type=\"text/css\">"
