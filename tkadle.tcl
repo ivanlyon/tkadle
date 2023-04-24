@@ -1497,8 +1497,9 @@ namespace eval Preferences {
 
         frame $result.offsetY
         label $result.offsetY.lbl -text "tkadle application window vertical offset (Pixels): "
-        spinbox $result.offsetY.sp -from 0 -to 200 -validate key \
-                -vcmd {string is integer %P} -textvariable Prefs(guiOffsetY)
+        spinbox $result.offsetY.sp -from 0 -to 200 -width 4 -validate key \
+                -vcmd {string is integer %P} -textvariable Prefs(guiOffsetY) \
+                -justify right
         pack $result.offsetY.lbl -side left
         pack $result.offsetY.sp -side left -fill x
         pack $result.offsetY -side top -fill x
@@ -1643,7 +1644,8 @@ namespace eval Preferences {
 
         ttk::labelframe $result.cfg -text "List File Configuration"
         label $result.cfg.lbl -text "Description Level(s)"
-        spinbox $result.cfg.sb -from 0 -to 3 -command {set Prefs([$openFile attName descriptions]) %s}
+        spinbox $result.cfg.sb -from 0 -to 3 -justify right -width 2 \
+                -command {set Prefs([$openFile attName descriptions]) %s}
         grid $result.cfg.lbl -row 0 -column 0 -sticky e
         grid $result.cfg.sb -row 0 -column 1 -sticky w
         if {[$openFile getConstant descriptionsMax] > 0} {
@@ -1667,7 +1669,9 @@ namespace eval Preferences {
         }
 
         label $result.cfg.lbl2 -text "Indentation spaces" -anchor e
-        spinbox $result.cfg.sb2 -from [$openFile getConstant indentMin] -to 8 -width 6  -command {set Prefs([$openFile attName indent]) %s}
+        spinbox $result.cfg.sb2 -from [$openFile getConstant indentMin] -to 80 \
+                -width 2 -command {set Prefs([$openFile attName indent]) %s} \
+                -justify right
         grid $result.cfg.lbl2 -row 2 -column 0 -sticky e
         grid $result.cfg.sb2 -row 2 -column 1 -sticky w
         $result.cfg.sb2 set $Prefs([$openFile attName indent])

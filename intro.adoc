@@ -15,7 +15,9 @@
     ** A tkadle input file must be dedicated to list syntax
     ** At this point, tkadle has only been tested and used by 1 person
     ** At this point, tkadle has not been ported beyond Linux
+    ** The only way to save geometry is to save by <Control> + q
     ** Geometry save between application instantiations is apprx 50 px wrong vertically
+        *** Added a vertical offset in pixels to workaround this issue
 * Notable design decisions
     ** tkadle creates its own icon on-the-fly (Maybe there is a reason no one does this?)
     ** tkadle automatically saves a list file after changes are made
