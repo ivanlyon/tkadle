@@ -16,7 +16,7 @@
 * A (sub)list can rearrange in ascending, descending or random order by "a" key
 * Check boxes can be added, checked, and removed with the "b" key
 * An item can be selected with arrow keys or by mouse click
-* List file is automatically saved when application is idle
+* List file is automatically saved when tkadle is idle (To prevent memory thrashing)
 * Escape key can be used to return to list view from any alternate view
 * List file syntax glyphs and indentation may be modified (Using Options view)
 * Copy & paste text from/to tkadle using <Control> + C and V

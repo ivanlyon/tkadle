@@ -728,7 +728,7 @@ namespace eval Deleted {
             set prefix "[llength $selected] of "
         } elseif {$selected ne {}} {
             set idx [expr {1 + [lindex $selected 0]}]
-            set prefix [format "%d%s of " $idx [StatusBar::SetNumberSuffix $idx]]
+            set prefix [format "%s of " [StatusBar::Suffixed $idx]]
         }
         set suffix ""
         if {$prefix ne ""} {
@@ -1295,7 +1295,7 @@ namespace eval ListFileIO {
         set errorLine 0
         if {[file exists $textFile]} {
             set errorLine [$openFile load $textFile]
-            set successText "File \"$textFile\" loaded."
+            set successText ""
         } else {
             set chan [open $textFile w+]
             close $chan
@@ -1309,8 +1309,13 @@ namespace eval ListFileIO {
         } else {
             set filename $textFile
             Gui::mode "LIST"
-            StatusBar::show $successText
+            if {$successText eq ""} {
+                StatusBar::show
+            } else {
+                StatusBar::show $successText
+            }
         }
+        zero true
         return
     }
 
@@ -1330,6 +1335,7 @@ namespace eval ListFileIO {
             after cancel $delayID
             set delayID [after $delay ListFileIO::SaveNow]
             SetWindowTitle true
+            StatusBar::show
         }
         return
     }
@@ -1346,7 +1352,7 @@ namespace eval ListFileIO {
         } else {
             file copy -force $tmpFilename $filename
             SetWindowTitle false
-            StatusBar::show "File $filename saved."
+            StatusBar::show
         }
 
         if {[file exists $tmpFilename]} {
@@ -1525,7 +1531,7 @@ namespace eval Preferences {
         set Prefs(exportPeriods) 1
         set Prefs(exportSentCap) 1
         set Prefs(geometry) 640x480
-        set Prefs(guiOffsetY) 10
+        set Prefs(guiOffsetY) 27
         set Prefs(insertDest) after
         set Prefs(khjl) 0
         set Prefs(sort) dictionary
@@ -1755,7 +1761,7 @@ namespace eval Selection {
     }
 
     proc arrange {} {
-        global Prefs
+        global Prefs stats
 
         set selected [SingleItem sorting]
         if {$selected eq {}} {
@@ -1794,6 +1800,7 @@ namespace eval Selection {
                 lappend newChildren [lindex $oldChildren $newIndex($i)]
             }
             .f.tvList children $parentID $newChildren
+            incr stats(changed)
             ListFileIO::saveFile
             StatusBar::show $statusMsg
         }
@@ -1801,6 +1808,7 @@ namespace eval Selection {
     }
 
     proc boxes {} {
+        global stats
         set selected [.f.tvList selection]
         if {$selected eq {}} {
             tk_messageBox -message "No item selected for removal."
@@ -1815,6 +1823,7 @@ namespace eval Selection {
                 }
                 .f.tvList item $node -text $newBox
             }
+            incr stats(changed)
             ListFileIO::saveFile
         }
         return
@@ -1847,6 +1856,7 @@ namespace eval Selection {
     }
 
     proc delete {} {
+        global stats
         set selected [.f.tvList selection]
         if {$selected eq {}} {
             tk_messageBox -message "No item selected for removal."
@@ -1869,6 +1879,7 @@ namespace eval Selection {
             foreach i [array names Treeview::ItemID] {
                 if {[.f.tvList exists $Treeview::ItemID($i)] == 0} {
                     array unset Treeview::ItemID $i
+                    incr stats(removed)
                 }
             }
             ListFileIO::saveFile
@@ -1917,7 +1928,7 @@ namespace eval Selection {
     }
 
     proc insert {{initialText ""}} {
-        global Prefs
+        global Prefs stats
 
         if {[.f.tvList selection] eq {}} {
             if {$Prefs(insertDest) eq "before"} {
@@ -1939,11 +1950,13 @@ namespace eval Selection {
         set selected [.f.tvList selection]
         if {[llength $selected] == 1 && $initialText ne ""} {
             ChangeText $initialText
+            incr stats(changed) -1
         }
         return
     }
 
     proc join {} {
+        global stats
         set selected [SingleItem join]
         if {$selected ne {}} {
             set nextItem [.f.tvList next $selected]
@@ -1957,6 +1970,7 @@ namespace eval Selection {
             set newText [.f.tvList item $nextItem -text]
             .f.tvList item $selected -text [string cat $oldText " " $newText]
             .f.tvList selection set $nextItem
+            incr stats(changed)
             Selection::delete
 
             .f.tvList selection set $selected
@@ -1995,6 +2009,7 @@ namespace eval Selection {
     }
 
     proc shiftLeft {} {
+        global stats
         set selected [SingleItem promotion]
         if {$selected ne {}} {
             set selParent [.f.tvList parent $selected]
@@ -2003,6 +2018,7 @@ namespace eval Selection {
                 set nextIndex [expr {1 + [.f.tvList index $selParent]}]
                 .f.tvList move $selected $nextParent $nextIndex
                 .f.tvList see $selected
+                incr stats(changed)
                 ListFileIO::saveFile
             }
         }
@@ -2010,6 +2026,7 @@ namespace eval Selection {
     }
 
     proc shiftRight {} {
+        global stats
         set selected [SingleItem demotion]
         if {$selected ne {}} {
             set commonParent [.f.tvList parent $selected]
@@ -2023,6 +2040,7 @@ namespace eval Selection {
             if {$prevIndex ne {}} {
                 .f.tvList move $selected $prevIndex end
                 .f.tvList see $selected
+                incr stats(changed)
                 ListFileIO::saveFile
             }
         }
@@ -2057,12 +2075,14 @@ namespace eval Selection {
     }
 
     proc VerticalMove {offset} {
+        global stats
         set selected [SingleItem movement]
         if {$selected ne {}} {
             set nextIndex [expr {[.f.tvList index $selected] + $offset}]
             set tvSiblings [llength [.f.tvList children [.f.tvList parent $selected]]]
             if {0 <= $nextIndex && $nextIndex < $tvSiblings} {
                 .f.tvList move $selected [.f.tvList parent $selected] $nextIndex
+                incr stats(changed)
                 ListFileIO::saveFile
             }
         }
@@ -2090,31 +2110,20 @@ namespace eval Selection {
 # Generate text of status bar located at bottom of GUI.
 #----------------------------------------------------------------------------
 namespace eval StatusBar {
-    proc GetTvNumber {target parentID atCount} {
+    proc RenumberTv {target parentID atCount} {
         set theCount $atCount
         foreach searching [.f.tvList children $parentID] {
             incr theCount
             if {$target eq $searching} {
                 set Treeview::buffer(selection) $theCount
             }
-            set theCount [GetTvNumber $target $searching $theCount]
+            set theCount [RenumberTv $target $searching $theCount]
         }
         return $theCount
     }
 
-    proc SetNumberSuffix {number} {
-        set of100 [expr {$number % 100}]
-        if {(11 <= $of100) && ($of100 <= 13)} {
-            set congruence 0
-        } else {
-            set congruence [expr {$of100 % 10}]
-        }
-        #               0  1  2  3  4  5  6  7  8  9
-        return [lindex {th st nd rd th th th th th th} $congruence]
-    }
-
     proc show {{statusMsg "default"}} {
-        global Prefs
+        global delayID Prefs stats
         if {$statusMsg eq "default"} {
             set selected [.f.tvList selection]
             if {$selected eq {}} {
@@ -2122,9 +2131,9 @@ namespace eval StatusBar {
             } else {
                 if {[llength $selected] == 1} {
                     set Treeview::buffer(selection) 0
-                    GetTvNumber $selected {} 0
-                    set prefix [format "%d%s" $Treeview::buffer(selection) \
-                            [SetNumberSuffix $Treeview::buffer(selection)]]
+                    RenumberTv $selected {} 0
+                    set prefix [format "%s" \
+                            [Suffixed $Treeview::buffer(selection)]]
                 } else {
                     set prefix [format "%d" [llength $selected]]
                 }
@@ -2150,18 +2159,37 @@ namespace eval StatusBar {
                 set ins "INS\u2193"
             }
             set gauges [list $selections $ins]
+            lappend gauges [format "+%d -%d \u0394%d" $stats(added) $stats(removed) $stats(changed)]
+
             if {$Treeview::buffer(find) ne {}} {
                 lappend gauges "find: \"$Treeview::buffer(find)\""
+            } else {
+                if {![ListFileIO::writable]} {
+                    lappend gauges "Read-Only: Changes not saved"
+                } elseif {[after info] != {}} {
+                    lappend gauges "Modified"
+                } else {
+                    lappend gauges "Saved"
+                }
             }
-            if {![ListFileIO::writable]} {
-                lappend gauges "Read-Only: Changes not saved"
-            }
+
             set statusMsg [join $gauges "      "]
         }
         .statusbar.text configure -text [string cat " " $statusMsg]
 
         pack .statusbar.badge -side left -ipadx 2
         return
+    }
+
+    proc Suffixed {number} {
+        set of100 [expr {$number % 100}]
+        if {(11 <= $of100) && ($of100 <= 13)} {
+            set congruence 0
+        } else {
+            set congruence [expr {$of100 % 10}]
+        }
+        #                      0  1  2  3  4  5  6  7  8  9
+        return $number[lindex {th st nd rd th th th th th th} $congruence]
     }
 }
 
@@ -2200,8 +2228,10 @@ namespace eval Treeview {
     }
 
     proc itemCache {treeviewItem} {
+        global stats
         variable ItemID
         variable ItemsCreated
+        incr stats(added)
         incr ItemsCreated
         return [set ItemID($ItemsCreated) $treeviewItem]
     }
@@ -2237,11 +2267,13 @@ namespace eval Treeview {
 # Actions performed when text box is properly closed.
 #----------------------------------------------------------------------------
 proc ChangeText {newText} {
+    global stats
     set selIndex [.f.tvList selection]
     if {[.lfEdit.t edit modified]} {
         regsub -all {[\r\n]} $newText "" contentNew
         .f.tvList item $selIndex -text $contentNew
-        StatusBar::show "Item $selIndex modified."
+        incr stats(changed)
+        StatusBar::show
     }
     ListFileIO::saveFile
 
@@ -2405,12 +2437,27 @@ proc TabDown {} {
 }
 
 #----------------------------------------------------------------------------
+# Reset session statistics in the manner of a trip odometer.
+#----------------------------------------------------------------------------
+proc zero {{show false}} {
+    global stats
+    set stats(added) 0
+    set stats(changed) 0
+    set stats(removed) 0
+    if {$show} {
+        StatusBar::show
+    }
+    return
+}
+
+#----------------------------------------------------------------------------
 # Commands
 #----------------------------------------------------------------------------
 
 package require Tk
 set ConfigFile "~/.tkadle"
 set delayID None
+zero
 
 switch -exact -- $paradigm {
     "ASCIIDOC" {set openFile [  ADocFormat new]}
@@ -2551,6 +2598,7 @@ Help::bindTip .f.tvList <Return>          {Gui::listMode Selection::edit} "Edit 
 Help::bindTip .f.tvList <Delete>          {Gui::listMode Selection::delete} "Remove selected item"
 Help::bindTip .f.tvList a                 {Gui::listMode Selection::arrange} "Arrangements sort cycle: upward, downward, random"
 Help::bindTip .f.tvList b                 {Gui::listMode Selection::boxes} "Box options cycle: none, empty, checked"
+Help::bindTip .f.tvList z                 {Gui::listMode {zero true}} "Reset session statistics to zero"
 Help::bindTip .f.tvList =                 {Gui::listMode Selection::duplicate} "Duplicate selected item"
 Help::bindTip .f.tvList <Control-w>       {Gui::listMode Selection::web} "Web (Internet) access http address"
 Help::bindTip .f.tvList <Control-greater> {Gui::listMode Selection::join} "Join selected item with next item"
