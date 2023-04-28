@@ -792,7 +792,7 @@ namespace eval Export {
 
         frame .f.export.hilite -padx 2 -pady 2
         button .f.export.hilite.btn -text "Set HTML highlight color..." \
-                -command "Export::SetHTMLHighlight .f.export.hilite.lbl"
+                -command "SetHighlightColor .f.export.hilite.lbl exportHilight"
         label .f.export.hilite.lbl -text "Sample highlight text" \
                 -background $Prefs(exportHilight)
         grid .f.export.hilite.btn .f.export.hilite.lbl -padx 2 -sticky nsew
@@ -972,17 +972,6 @@ namespace eval Export {
         }
         if {($state == "PARAGRAPH") && ($Prefs(exportParagraph))} {
             puts $fp "    </p>"
-        }
-        return
-    }
-
-    proc SetHTMLHighlight {widgt} {
-        global Prefs
-        set color [tk_chooseColor -title "Choose highlight color" \
-                -initialcolor $Prefs(exportHilight)]
-        if {$color ne ""} {
-            set Prefs(exportHilight) $color
-            $widgt configure -background $color
         }
         return
     }
@@ -1172,6 +1161,7 @@ namespace eval Gui {
             Gui::mode "LIST"
             Treeview::focusOn [.f.tvList selection]
             StatusBar::show
+            Preferences::save
         } elseif {$current eq "LIST"} {
             Gui::mode "EXPORT"
         }
@@ -1184,6 +1174,7 @@ namespace eval Gui {
             Gui::mode "LIST"
             Treeview::focusOn [.f.tvList selection]
             StatusBar::show
+            Preferences::save
         } elseif {$current eq "LIST"} {
             Gui::mode "PREFERENCES"
         }
@@ -1315,7 +1306,7 @@ namespace eval ListFileIO {
                 StatusBar::show $successText
             }
         }
-        zero true
+        zeroize
         return
     }
 
@@ -1460,6 +1451,16 @@ namespace eval Navigation {
 # tkadle Preferences viewing and assignment
 #----------------------------------------------------------------------------
 namespace eval Preferences {
+    proc changedColor {} {
+        global Prefs
+        if {$Prefs(changedShow)} {
+            .f.tvList tag configure modded -background $Prefs(changedHilight)
+        } else {
+            .f.tvList tag configure modded -background ""
+        }
+        return
+    }
+
     proc gui {} {
         global openFile
 
@@ -1501,6 +1502,18 @@ namespace eval Preferences {
         }
         pack $result.sort -side top -fill x -pady 4
 
+        labelframe $result.changed -padx 2 -pady 2
+        checkbutton $result.changed.cb -text "Highlight changed list items" \
+                -variable Prefs(changedShow) \
+                -command "Preferences::changedColor"
+        $result.changed configure -labelwidget $result.changed.cb
+        button $result.changed.btn -text "Set changed highlight color..." \
+                -command "SetHighlightColor $result.changed.lbl changedHilight"
+        label $result.changed.lbl -text "Sample highlight item" \
+                -background $Prefs(changedHilight)
+        grid $result.changed.btn $result.changed.lbl -padx 2 -sticky nsew
+        pack $result.changed -side top -fill x -pady 4
+
         frame $result.offsetY
         label $result.offsetY.lbl -text "tkadle application window vertical offset (Pixels): "
         spinbox $result.offsetY.sp -from 0 -to 200 -width 4 -validate key \
@@ -1520,6 +1533,8 @@ namespace eval Preferences {
 
     proc load {} {
         global ConfigFile Prefs openFile
+        set Prefs(changedHilight) yellow
+        set Prefs(changedShow) 1
         set Prefs(exportHilight) #BFB
         set Prefs(exportNonParaBold) 0
         set Prefs(exportNonParagraph) 1
@@ -1604,6 +1619,7 @@ namespace eval Preferences {
 
     proc save {} {
         global ConfigFile Prefs
+        changedColor
         set fp [open $ConfigFile w]
         foreach i [array names Prefs] {
             puts $fp "$i $Prefs($i)"
@@ -1800,7 +1816,6 @@ namespace eval Selection {
                 lappend newChildren [lindex $oldChildren $newIndex($i)]
             }
             .f.tvList children $parentID $newChildren
-            incr stats(changed)
             ListFileIO::saveFile
             StatusBar::show $statusMsg
         }
@@ -1823,7 +1838,7 @@ namespace eval Selection {
                 }
                 .f.tvList item $node -text $newBox
             }
-            incr stats(changed)
+            .f.tvList tag add modded $selected
             ListFileIO::saveFile
         }
         return
@@ -1950,7 +1965,6 @@ namespace eval Selection {
         set selected [.f.tvList selection]
         if {[llength $selected] == 1 && $initialText ne ""} {
             ChangeText $initialText
-            incr stats(changed) -1
         }
         return
     }
@@ -1970,10 +1984,10 @@ namespace eval Selection {
             set newText [.f.tvList item $nextItem -text]
             .f.tvList item $selected -text [string cat $oldText " " $newText]
             .f.tvList selection set $nextItem
-            incr stats(changed)
             Selection::delete
 
             .f.tvList selection set $selected
+            .f.tvList tag add modded $selected
             ListFileIO::saveFile
         }
         return
@@ -2018,7 +2032,7 @@ namespace eval Selection {
                 set nextIndex [expr {1 + [.f.tvList index $selParent]}]
                 .f.tvList move $selected $nextParent $nextIndex
                 .f.tvList see $selected
-                incr stats(changed)
+                .f.tvList tag add modded $selected
                 ListFileIO::saveFile
             }
         }
@@ -2040,7 +2054,7 @@ namespace eval Selection {
             if {$prevIndex ne {}} {
                 .f.tvList move $selected $prevIndex end
                 .f.tvList see $selected
-                incr stats(changed)
+                .f.tvList tag add modded $selected
                 ListFileIO::saveFile
             }
         }
@@ -2069,6 +2083,7 @@ namespace eval Selection {
             set text2 [.lfEdit.t get insert end]
             ChangeText $text1
             .f.tvList selection set $selected
+            .f.tvList tag add modded $selected
             Selection::insert $text2
         }
         return
@@ -2082,7 +2097,7 @@ namespace eval Selection {
             set tvSiblings [llength [.f.tvList children [.f.tvList parent $selected]]]
             if {0 <= $nextIndex && $nextIndex < $tvSiblings} {
                 .f.tvList move $selected [.f.tvList parent $selected] $nextIndex
-                incr stats(changed)
+                .f.tvList tag add modded $selected
                 ListFileIO::saveFile
             }
         }
@@ -2110,12 +2125,17 @@ namespace eval Selection {
 # Generate text of status bar located at bottom of GUI.
 #----------------------------------------------------------------------------
 namespace eval StatusBar {
+    variable Changed
     proc RenumberTv {target parentID atCount} {
+        variable Changed
         set theCount $atCount
         foreach searching [.f.tvList children $parentID] {
             incr theCount
             if {$target eq $searching} {
                 set Treeview::buffer(selection) $theCount
+            }
+            if {[.f.tvList tag has modded $searching]} {
+                incr Changed
             }
             set theCount [RenumberTv $target $searching $theCount]
         }
@@ -2124,20 +2144,23 @@ namespace eval StatusBar {
 
     proc show {{statusMsg "default"}} {
         global delayID Prefs stats
+        variable Changed
         if {$statusMsg eq "default"} {
+            set Changed 0
             set selected [.f.tvList selection]
-            if {$selected eq {}} {
-                set prefix "-"
+            if {[llength $selected] == 1} {
+                set Treeview::buffer(selection) 0
+                RenumberTv $selected {} 0
+                set prefix [format "%s" [Suffixed $Treeview::buffer(selection)]]
             } else {
-                if {[llength $selected] == 1} {
-                    set Treeview::buffer(selection) 0
-                    RenumberTv $selected {} 0
-                    set prefix [format "%s" \
-                            [Suffixed $Treeview::buffer(selection)]]
+                RenumberTv {} {} 0
+                if {$selected eq {}} {
+                    set prefix "-"
                 } else {
                     set prefix [format "%d" [llength $selected]]
                 }
             }
+
             if {$Treeview::buffer(find) ne ""} {
                 set found 0
                 set needle $Treeview::buffer(find)
@@ -2159,7 +2182,8 @@ namespace eval StatusBar {
                 set ins "INS\u2193"
             }
             set gauges [list $selections $ins]
-            lappend gauges [format "+%d -%d \u0394%d" $stats(added) $stats(removed) $stats(changed)]
+            lappend gauges [format "\u2212%d +%d \u0394%d" \
+                    $stats(removed) $stats(added) $Changed]
 
             if {$Treeview::buffer(find) ne {}} {
                 lappend gauges "find: \"$Treeview::buffer(find)\""
@@ -2272,7 +2296,6 @@ proc ChangeText {newText} {
     if {[.lfEdit.t edit modified]} {
         regsub -all {[\r\n]} $newText "" contentNew
         .f.tvList item $selIndex -text $contentNew
-        incr stats(changed)
         StatusBar::show
     }
     ListFileIO::saveFile
@@ -2404,6 +2427,20 @@ proc ScrollbarOnDemand {sb lo hi} {
 }
 
 #----------------------------------------------------------------------------
+# Use color chooser to assign a color variable.
+#----------------------------------------------------------------------------
+proc SetHighlightColor {widgt colorVar} {
+    global Prefs
+    set color [tk_chooseColor -title "Choose highlight color" \
+            -initialcolor $Prefs($colorVar)]
+    if {$color ne ""} {
+        set Prefs($colorVar) $color
+        $widgt configure -background $color
+    }
+    return
+}
+
+#----------------------------------------------------------------------------
 # Set tkadle window title using opened file name, if available.
 #----------------------------------------------------------------------------
 proc SetWindowTitle {dirty} {
@@ -2439,12 +2476,12 @@ proc TabDown {} {
 #----------------------------------------------------------------------------
 # Reset session statistics in the manner of a trip odometer.
 #----------------------------------------------------------------------------
-proc zero {{show false}} {
+proc zeroize {{show true}} {
     global stats
     set stats(added) 0
-    set stats(changed) 0
     set stats(removed) 0
     if {$show} {
+        .f.tvList tag remove modded
         StatusBar::show
     }
     return
@@ -2457,7 +2494,7 @@ proc zero {{show false}} {
 package require Tk
 set ConfigFile "~/.tkadle"
 set delayID None
-zero
+zeroize false
 
 switch -exact -- $paradigm {
     "ASCIIDOC" {set openFile [  ADocFormat new]}
@@ -2482,6 +2519,7 @@ grid .f -row 1 -column 0 -sticky nsew
 Deleted::gui
 Export::gui
 Preferences::gui
+Preferences::changedColor
 
 labelframe .lfEdit -text "Selection Editor" -padx 3 -pady 1
 text .lfEdit.t -height 3 -yscrollcommand {.lfEdit.sEdit set} -wrap word
@@ -2598,7 +2636,7 @@ Help::bindTip .f.tvList <Return>          {Gui::listMode Selection::edit} "Edit 
 Help::bindTip .f.tvList <Delete>          {Gui::listMode Selection::delete} "Remove selected item"
 Help::bindTip .f.tvList a                 {Gui::listMode Selection::arrange} "Arrangements sort cycle: upward, downward, random"
 Help::bindTip .f.tvList b                 {Gui::listMode Selection::boxes} "Box options cycle: none, empty, checked"
-Help::bindTip .f.tvList z                 {Gui::listMode {zero true}} "Reset session statistics to zero"
+Help::bindTip .f.tvList z                 {Gui::listMode zeroize} "Reset session statistics to zero"
 Help::bindTip .f.tvList =                 {Gui::listMode Selection::duplicate} "Duplicate selected item"
 Help::bindTip .f.tvList <Control-w>       {Gui::listMode Selection::web} "Web (Internet) access http address"
 Help::bindTip .f.tvList <Control-greater> {Gui::listMode Selection::join} "Join selected item with next item"
