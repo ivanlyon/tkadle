@@ -2182,19 +2182,28 @@ namespace eval StatusBar {
 
             if {$Treeview::buffer(find) ne {}} {
                 lappend gauges "find: \"$Treeview::buffer(find)\""
-            } else {
-                if {![ListFileIO::writable]} {
-                    lappend gauges "Read-Only: Changes not saved"
-                } elseif {[after info] != {}} {
-                    lappend gauges "Modified"
-                } else {
-                    lappend gauges "Saved"
-                }
             }
 
             set statusMsg [join $gauges "      "]
         }
+
+        if {![ListFileIO::writable]} {
+            set fileBG red
+            set fileText "Read-Only"
+        } elseif {[after info] != {}} {
+            set fileBG yellow
+            set fileText "Modified"
+        } else {
+            set fileBG green
+            if {$stats(removed) + $stats(added) + $Changed == 0} {
+                set fileText "Loaded"
+            } else {
+                set fileText "Saved"
+            }
+        }
+
         .statusbar.text configure -text [string cat " " $statusMsg]
+        .statusbar.file configure -text $fileText -bg $fileBG
 
         pack .statusbar.badge -side left -ipadx 2
         return
@@ -2529,7 +2538,9 @@ bind .lfEdit.t <Return> {ChangeText [.lfEdit.t get 1.0 end]}
 frame .statusbar
 label .statusbar.badge -relief sunken -borderwidth 2 -font {{Times Roman} 0 bold}
 label .statusbar.text -relief sunken -borderwidth 2 -anchor w
+label .statusbar.file -relief sunken -borderwidth 2 -anchor e -text "Loaded"
 pack .statusbar.badge -side left -ipadx 2
+pack .statusbar.file -side right
 pack .statusbar.text -side right -expand yes -fill both
 grid .statusbar -row 3 -column 0 -sticky ew
 
@@ -2652,7 +2663,7 @@ bind . <<Paste>>                          {Gui::listMode PasteItems}
 bind .f.tvList <<TreeviewSelect>> StatusBar::show
 bind .f.lbDEL <<ListboxSelect>>   Deleted::status
 
-bind .statusbar.badge <Enter> { StatusBar::show "File Syntax: [$openFile getConstant legend]"}
+bind .statusbar.badge <Enter> { StatusBar::show "Interpreting Syntax: [$openFile getConstant legend]"}
 bind .statusbar.badge <Leave> { StatusBar::show }
 
 ############################################################################
