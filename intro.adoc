@@ -1,7 +1,9 @@
+// tkadle tclversion:8.6 hostname:GT60 os:Linux user:robert 2023-05-03T13:46:13
+
 * To tkadle this file, use the command "tkadle.tcl -syn asciidoc intro.adoc"
 * To expand all folded items in tkadle, press "+" a few times
 * Keyboard arrow keys are the intended means of navigating the list
-* Press F1 to see a help dialog
+* Press F1 to see tkadle help dialog
 * Alternate views of the tkadle gui
     ** <Control+D> displays the Deleted items per session (Empty at start)
     ** <Control+E> displays the Export view
@@ -16,9 +18,9 @@
     ** At this point, tkadle has only been tested and used by 1 person
     ** At this point, tkadle has not been ported beyond Linux
     ** The only way to save geometry is to save by <Control> + q
-    ** Geometry save between application instantiations is apprx 50 px wrong vertically
+    ** Geometry save between application instantiations is inaccurate due to OS window frame sizing
         *** Added a vertical offset in pixels to workaround this issue
-* Notable design decisions
+* Notable implementation decisions
     ** tkadle creates its own icon on-the-fly (Maybe there is a reason no one does this?)
     ** tkadle automatically saves a list file after changes are made
     ** Syntax emblems displayed on GUI are naive approximations
@@ -35,6 +37,6 @@
     ** Custom fonts (Somebody, somewhere, is going to ask for monospace)
     ** Create tests?
     ** Porting to Windows and MacOS
-    ** Figure out if the "Export" functionality is as cool as I think it is
+    ** Verify "Export" functionality is as cool as I think it is
     ** Slide show of (Every node with descendents) or (Every top level node)
     ** Provide a quick view of elided list items (Balloon, or separate pane by hotkey)

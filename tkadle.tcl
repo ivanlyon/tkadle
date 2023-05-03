@@ -1777,7 +1777,7 @@ namespace eval Selection {
     }
 
     proc arrange {} {
-        global Prefs stats
+        global Prefs
 
         set selected [SingleItem sorting]
         if {$selected eq {}} {
@@ -1823,7 +1823,6 @@ namespace eval Selection {
     }
 
     proc boxes {} {
-        global stats
         set selected [.f.tvList selection]
         if {$selected eq {}} {
             tk_messageBox -message "No item selected for removal."
@@ -1943,7 +1942,7 @@ namespace eval Selection {
     }
 
     proc insert {{initialText ""}} {
-        global Prefs stats
+        global Prefs
 
         if {[.f.tvList selection] eq {}} {
             if {$Prefs(insertDest) eq "before"} {
@@ -1970,7 +1969,6 @@ namespace eval Selection {
     }
 
     proc join {} {
-        global stats
         set selected [SingleItem join]
         if {$selected ne {}} {
             set nextItem [.f.tvList next $selected]
@@ -2023,7 +2021,6 @@ namespace eval Selection {
     }
 
     proc shiftLeft {} {
-        global stats
         set selected [SingleItem promotion]
         if {$selected ne {}} {
             set selParent [.f.tvList parent $selected]
@@ -2040,7 +2037,6 @@ namespace eval Selection {
     }
 
     proc shiftRight {} {
-        global stats
         set selected [SingleItem demotion]
         if {$selected ne {}} {
             set commonParent [.f.tvList parent $selected]
@@ -2090,7 +2086,6 @@ namespace eval Selection {
     }
 
     proc VerticalMove {offset} {
-        global stats
         set selected [SingleItem movement]
         if {$selected ne {}} {
             set nextIndex [expr {[.f.tvList index $selected] + $offset}]
@@ -2291,20 +2286,22 @@ namespace eval Treeview {
 # Actions performed when text box is properly closed.
 #----------------------------------------------------------------------------
 proc ChangeText {newText} {
-    global stats
     set selIndex [.f.tvList selection]
     if {[.lfEdit.t edit modified]} {
         regsub -all {[\r\n]} $newText "" contentNew
+        if {$contentNew ne $Treeview::buffer(edit)} {
+            .f.tvList tag add modded $selIndex
+        }
         .f.tvList item $selIndex -text $contentNew
-        StatusBar::show
+        ListFileIO::saveFile
     }
-    ListFileIO::saveFile
 
     .f.tvList selection toggle $selIndex
     .lfEdit.t replace 1.0 end ""
     .f.tvList state !disabled
     Gui::mode "LIST"
     Treeview::focusOn $selIndex
+    StatusBar::show
     return
 }
 
@@ -2660,6 +2657,6 @@ bind .statusbar.badge <Leave> { StatusBar::show }
 
 ############################################################################
 #  hotkeys: abcdefghijklmnopqrstuvwxyz
-# assigned: abCCCC vCvvv  CCCC   CCC  
-#    Types: (a)rrange, (b)ox, (v)i navigation, (C)ontrol-?
+# assigned: abCCCC vCvvv  CCCC   CCC z
+#    Types: (a)rrange, (b)ox, (v)i navigation, (C)ontrol-? (z)eroize
 ############################################################################
