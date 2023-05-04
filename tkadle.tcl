@@ -1076,8 +1076,14 @@ namespace eval Gui {
         variable current
         if {$current eq "EDIT"} {
             ChangeText $Treeview::buffer(edit)
+        } elseif {$current eq "EXPORT"} {
+            toggleExport
         } elseif {$current eq "LIST"} {
             .f.tvList selection set {}
+        } elseif {$current eq "PREFERENCES"} {
+            toggleOptions
+        } elseif {$current eq "REMOVED"} {
+            toggleRemoved
         } else {
             Gui::mode "LIST"
             Search::Hide
