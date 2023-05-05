@@ -2146,8 +2146,8 @@ namespace eval StatusBar {
     proc show {{statusMsg "default"}} {
         global delayID Prefs stats
         variable Changed
+        set Changed 0
         if {$statusMsg eq "default"} {
-            set Changed 0
             set selected [.f.tvList selection]
             if {[llength $selected] == 1} {
                 set Treeview::buffer(selection) 0
@@ -2201,7 +2201,9 @@ namespace eval StatusBar {
             set fileText "Modified"
         } else {
             set fileBG green
-            if {$stats(removed) + $stats(added) + $Changed == 0} {
+            if {$Treeview::ItemsCreated == 0} {
+                set fileText "Created"
+            } elseif {$stats(removed) + $stats(added) + $Changed == 0} {
                 set fileText "Loaded"
             } else {
                 set fileText "Saved"
