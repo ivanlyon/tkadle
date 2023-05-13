@@ -691,7 +691,7 @@ namespace eval Deleted {
     }
 
     proc returnItem {} {
-        Gui::mode "LIST"
+        Gui::setMode "LIST"
         foreach i [.f.lbDEL curselection] {
             set newItem [Treeview::itemCache [.f.tvList insert {} end -text [.f.lbDEL get $i]]]
             .f.tvList selection set $newItem
@@ -1070,30 +1070,30 @@ namespace eval Folding {
 # Reconfigure GUI appearance on demand.
 #----------------------------------------------------------------------------
 namespace eval Gui {
-    variable current
+    variable mode
 
     proc escapeKey {} {
-        variable current
-        if {$current eq "EDIT"} {
+        variable mode
+        if {$mode eq "EDIT"} {
             ChangeText $Treeview::buffer(edit)
-        } elseif {$current eq "EXPORT"} {
+        } elseif {$mode eq "EXPORT"} {
             toggleExport
-        } elseif {$current eq "LIST"} {
+        } elseif {$mode eq "LIST"} {
             .f.tvList selection set {}
-        } elseif {$current eq "PREFERENCES"} {
+        } elseif {$mode eq "PREFERENCES"} {
             toggleOptions
-        } elseif {$current eq "REMOVED"} {
+        } elseif {$mode eq "REMOVED"} {
             toggleRemoved
         } else {
-            Gui::mode "LIST"
+            Gui::setMode "LIST"
             Search::Hide
         }
         return
     }
 
     proc listMode {{operation ""}} {
-        variable current
-        if {$current ne "LIST"} {
+        variable mode
+        if {$mode ne "LIST"} {
             return false
         }
         if {$operation ne ""} {
@@ -1102,9 +1102,20 @@ namespace eval Gui {
         return true
     }
 
-    proc mode {newMode} {
-        variable current
-        if {$current eq $newMode} {
+    proc nonEditMode {{operation ""}} {
+        variable mode
+        if {$mode eq "EDIT"} {
+            return false
+        }
+        if {$operation ne ""} {
+            $operation
+        }
+        return true
+    }
+
+    proc setMode {newMode} {
+        variable mode
+        if {$mode eq $newMode} {
             return
         }
         if {$newMode ne "EXPORT"} {
@@ -1146,55 +1157,44 @@ namespace eval Gui {
                 StatusBar::show "Edit Item"
             }
         }
-        set current $newMode
+        set mode $newMode
         return
     }
 
-    proc nonEditMode {{operation ""}} {
-        variable current
-        if {$current eq "EDIT"} {
-            return false
-        }
-        if {$operation ne ""} {
-            $operation
-        }
-        return true
-    }
-
     proc toggleExport {} {
-        variable current
-        if {$current eq "EXPORT"} {
-            Gui::mode "LIST"
+        variable mode
+        if {$mode eq "EXPORT"} {
+            Gui::setMode "LIST"
             Treeview::focusOn [.f.tvList selection]
             StatusBar::show
             Preferences::save
-        } elseif {$current eq "LIST"} {
-            Gui::mode "EXPORT"
+        } elseif {$mode eq "LIST"} {
+            Gui::setMode "EXPORT"
         }
         return
     }
 
     proc toggleOptions {} {
-        variable current
-        if {$current eq "PREFERENCES"} {
-            Gui::mode "LIST"
+        variable mode
+        if {$mode eq "PREFERENCES"} {
+            Gui::setMode "LIST"
             Treeview::focusOn [.f.tvList selection]
             StatusBar::show
             Preferences::save
-        } elseif {$current eq "LIST"} {
-            Gui::mode "PREFERENCES"
+        } elseif {$mode eq "LIST"} {
+            Gui::setMode "PREFERENCES"
         }
         return
     }
 
     proc toggleRemoved {} {
-        variable current
-        if {$current eq "REMOVED"} {
-            Gui::mode "LIST"
+        variable mode
+        if {$mode eq "REMOVED"} {
+            Gui::setMode "LIST"
             Treeview::focusOn [.f.tvList selection]
             StatusBar::show
-        } elseif {$current eq "LIST"} {
-            Gui::mode "REMOVED"
+        } elseif {$mode eq "LIST"} {
+            Gui::setMode "REMOVED"
         }
         return
     }
@@ -1305,7 +1305,7 @@ namespace eval ListFileIO {
             Treeview::clear
         } else {
             set filename $textFile
-            Gui::mode "LIST"
+            Gui::setMode "LIST"
             if {$successText eq ""} {
                 StatusBar::show
             } else {
@@ -1369,8 +1369,7 @@ namespace eval ListFileIO {
 #----------------------------------------------------------------------------
 namespace eval Navigation {
     proc endKey {} {
-        global Gui::current
-        switch -exact -- $Gui::current {
+        switch -exact -- $Gui::mode {
             LIST    {.f.tvList selection set {}; SelectDefaultItem prev}
             REMOVED {Deleted::endKey}
         }
@@ -1378,8 +1377,7 @@ namespace eval Navigation {
     }
 
     proc homeKey {} {
-        global Gui::current
-        switch -exact -- $Gui::current {
+        switch -exact -- $Gui::mode {
             LIST    {.f.tvList selection set {}; SelectDefaultItem next}
             REMOVED {Deleted::homeKey}
         }
@@ -1436,16 +1434,14 @@ namespace eval Navigation {
     }
 
     proc selectNext {} {
-        global Gui::current
-        switch -exact -- $Gui::current {
+        switch -exact -- $Gui::mode {
             LIST    {SelectDefaultItem next}
             REMOVED {Deleted::selectNext}
         }
         return
     }
     proc selectPrev {} {
-        global Gui::current
-        switch -exact -- $Gui::current {
+        switch -exact -- $Gui::mode {
             LIST    {SelectDefaultItem prev}
             REMOVED {Deleted::selectPrev}
         }
@@ -1945,7 +1941,7 @@ namespace eval Selection {
     proc edit {} {
         set selected [SingleItem edit]
         if {$selected ne {}} {
-            Gui::mode "EDIT"
+            Gui::setMode "EDIT"
             set Treeview::buffer(edit) [.f.tvList item $selected -text]
             .lfEdit.t replace 1.0 end $Treeview::buffer(edit)
             .f.tvList item $selected -text "<!-- UNDER CONSTRUCTION -->"
@@ -1981,6 +1977,7 @@ namespace eval Selection {
         set selected [.f.tvList selection]
         if {[llength $selected] == 1 && $initialText ne ""} {
             ChangeText $initialText
+            .f.tvList tag add modded $selected
         }
         return
     }
@@ -2248,8 +2245,11 @@ namespace eval StatusBar {
                 set ins "INS\u2193"
             }
             set gauges [list $selections $ins]
-            lappend gauges [format "\u2212%d +%d \u0394%d" \
-                    $stats(removed) $stats(added) $Changed]
+            if {$Gui::mode eq "EDIT"} {
+                incr Changed
+            }
+            lappend gauges [format "\u2212%d +%d \u0394%d" $stats(removed) \
+                    $stats(added) [expr {$Changed - $stats(added)}]]
 
             if {$Treeview::buffer(find) ne {}} {
                 lappend gauges "find: \"$Treeview::buffer(find)\""
@@ -2384,7 +2384,7 @@ proc ChangeText {newText} {
     .f.tvList selection toggle $selIndex
     .lfEdit.t replace 1.0 end ""
     .f.tvList state !disabled
-    Gui::mode "LIST"
+    Gui::setMode "LIST"
     Treeview::focusOn $selIndex
     StatusBar::show
     return
@@ -2630,7 +2630,7 @@ grid columnconfigure . 0 -weight 1
 #ttk::style configure styleCustom.$suffix -foreground green
 #.f.tvList configure -style "styleCustom.$suffix"
 
-set Gui::current "LIST"
+set Gui::mode "LIST"
 Treeview::clear
 $openFile labelLogo .statusbar.badge
 
