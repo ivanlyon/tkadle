@@ -1473,6 +1473,7 @@ namespace eval Preferences {
         frame .f.fPrefs
         ttk::notebook .f.fPrefs.nbPrefs
         .f.fPrefs.nbPrefs add [GUIFrame .f.fPrefs.nbPrefs] -text "GUI"
+        .f.fPrefs.nbPrefs add [KeysFrame .f.fPrefs.nbPrefs] -text "Keys"
         if {[$openFile getConstant structured]} {
             .f.fPrefs.nbPrefs add [StylesFrame .f.fPrefs.nbPrefs] -text "Syntax"
         }
@@ -1486,36 +1487,14 @@ namespace eval Preferences {
         global Prefs
         set result [frame $parent.gui -padx 2 -pady 2]
 
-        labelframe $result.nav -text "Navigation key options" -padx 2 -pady 2
-        label $result.nav.arrows -anchor w -background grey95\
-                -text "Arrow keys enabled: \u2191\u2190\u2193\u2192"
-        pack $result.nav.arrows -side top -fill x
-        foreach {val legend caption} {khjl vi "Editor movement keys \"khjl\""} {
-            checkbutton $result.nav.$val -text "$legend ($caption)" \
-                    -anchor w -variable Prefs($val) -command {Preferences::NavKeys}
-            pack $result.nav.$val -side top -fill x
-        }
-        pack $result.nav -side top -fill x -pady 4
-
-        labelframe $result.sort -text "Arrangement key sort options" -padx 2 -pady 2
-        set sortLegend { ascii      "Default (Unicode code-point collation order)" \
-                         nocase     "Case-insensitive" \
-                         dictionary "Case-insensitive and integer values" }
-        foreach {name legend} $sortLegend {
-            radiobutton $result.sort.$name -text $legend -value $name \
-                    -anchor w -variable Prefs(sort)
-            pack $result.sort.$name -side top -fill x
-        }
-        pack $result.sort -side top -fill x -pady 4
-
         labelframe $result.changed -padx 2 -pady 2
         checkbutton $result.changed.cb -text "Highlight changed list items" \
                 -variable Prefs(changedShow) \
                 -command "Preferences::changedColor"
         $result.changed configure -labelwidget $result.changed.cb
-        button $result.changed.btn -text "Set changed highlight color..." \
+        button $result.changed.btn -text "Set color..." \
                 -command "SetHighlightColor $result.changed.lbl changedHilight"
-        label $result.changed.lbl -text "Sample highlight item" \
+        label $result.changed.lbl -text "Changed item example" \
                 -background $Prefs(changedHilight)
         grid $result.changed.btn $result.changed.lbl -padx 2 -sticky nsew
         pack $result.changed -side top -fill x -pady 4
@@ -1537,6 +1516,51 @@ namespace eval Preferences {
         return
     }
 
+    proc KeysFrame {parent} {
+        global Prefs
+        set result [frame $parent.keys -padx 2 -pady 2]
+
+        labelframe $result.sort -text "(a)rrangement key sort options" -padx 2 -pady 2
+        set sortLegend { ascii      "Default (Unicode code-point collation order)" \
+                         nocase     "Case-insensitive" \
+                         dictionary "Case-insensitive and integer values" }
+        foreach {name legend} $sortLegend {
+            radiobutton $result.sort.$name -text $legend -value $name \
+                    -anchor w -variable Prefs(sort)
+            pack $result.sort.$name -side top -fill x
+        }
+        pack $result.sort -side top -fill x -pady 4
+
+        labelframe $result.tagk -text "(t)ag key options" -padx 2 -pady 2
+        label $result.tagk.note -text "Every non-null tag will be written to file with 1 space appended" -anchor w
+        pack $result.tagk.note -side top -fill x
+        foreach {name legend} $Selection::tagLegend {
+            set legend2 [string cat [string totitle $name] ": " $legend]
+            radiobutton $result.tagk.$name -text $legend2 -value $name \
+                    -anchor w -variable Prefs(tagKey) -font "Courier"
+            pack $result.tagk.$name -side top -fill x
+        }
+        label $result.tagk.customL -text "Custom \"/\" separated tag items: " -anchor e
+        entry $result.tagk.customE -textvariable Prefs(tagKeyCustom) \
+                -font "Courier"
+        pack $result.tagk.customL -side left
+        pack $result.tagk.customE -side left -fill x
+        pack $result.tagk -side top -fill x -pady 4
+
+        labelframe $result.nav -text "Navigation key options" -padx 2 -pady 2
+        label $result.nav.arrows -anchor w -background grey95\
+                -text "Arrow keys enabled: \u2191\u2190\u2193\u2192"
+        pack $result.nav.arrows -side top -fill x
+        foreach {val legend caption} {khjl vi "Editor movement keys \"khjl\""} {
+            checkbutton $result.nav.$val -text "$legend ($caption)" \
+                    -anchor w -variable Prefs($val) -command {Preferences::NavKeys}
+            pack $result.nav.$val -side top -fill x
+        }
+        pack $result.nav -side top -fill x -pady 4
+
+        return $result
+    }
+
     proc load {} {
         global ConfigFile Prefs openFile
         set Prefs(changedHilight) yellow
@@ -1556,6 +1580,8 @@ namespace eval Preferences {
         set Prefs(insertDest) after
         set Prefs(khjl) 0
         set Prefs(sort) dictionary
+        set Prefs(tagKey) checkbox
+        set Prefs(tagKeyCustom) "=/+/-"
 
         if {[file isfile $ConfigFile]} {
             set fp [open $ConfigFile r]
@@ -1773,6 +1799,12 @@ namespace eval Search {
 # Logical grouping of list edits for using selected treeview items.
 #----------------------------------------------------------------------------
 namespace eval Selection {
+    variable tagLegend {
+        checkbox "\[ \]/\[x\]" \
+        priority "**Low**/**High**" \
+        testing  "\[ \]/\[Fail\]/\[Pass\]" \
+        custom   "Use text entry contents" }
+
     proc allItems {} {
         set allTreeItems [list]
         foreach {index value} [array get Treeview::ItemID] {
@@ -1824,27 +1856,6 @@ namespace eval Selection {
             .f.tvList children $parentID $newChildren
             ListFileIO::saveFile
             StatusBar::show $statusMsg
-        }
-        return
-    }
-
-    proc boxes {} {
-        set selected [.f.tvList selection]
-        if {$selected eq {}} {
-            tk_messageBox -message "No item selected for removal."
-        } else {
-            foreach node $selected {
-                set oldText [.f.tvList item $node -text]
-                set past4 [string range $oldText 4 end]
-                switch -exact [string range $oldText 0 3] {
-                    "\[x\] " { set newBox $past4 }
-                    "\[ \] " { set newBox [string cat "\[x\] " $past4  ] }
-                    default  { set newBox [string cat "\[ \] " $oldText] }
-                }
-                .f.tvList item $node -text $newBox
-            }
-            .f.tvList tag add modded $selected
-            ListFileIO::saveFile
         }
         return
     }
@@ -2020,6 +2031,19 @@ namespace eval Selection {
         return
     }
 
+    proc separate {} {
+        set selected [SingleItem edit]
+        if {$selected ne {}} {
+            set text1 [.lfEdit.t get 1.0 insert]
+            set text2 [.lfEdit.t get insert end]
+            ChangeText $text1
+            .f.tvList selection set $selected
+            .f.tvList tag add modded $selected
+            Selection::insert $text2
+        }
+        return
+    }
+
     proc shiftDown {} {
         VerticalMove 1
         event generate .f.tvList <Up>
@@ -2078,17 +2102,58 @@ namespace eval Selection {
         return {}
     }
 
-    proc split {} {
-        set selected [SingleItem edit]
-        if {$selected ne {}} {
-            set text1 [.lfEdit.t get 1.0 insert]
-            set text2 [.lfEdit.t get insert end]
-            ChangeText $text1
-            .f.tvList selection set $selected
+    proc tagKey {} {
+        set selected [.f.tvList selection]
+        if {$selected eq {}} {
+            tk_messageBox -message "No item selected for tag."
+        } else {
+            set tagOptions [tagOptionsList]
+            set fromTo {"\[" "\\\[" "\]" "\\\]" "\*" "\\\*" "\?" "\\\?"}
+            set patterns {}
+            foreach item $tagOptions {
+                lappend patterns [string map $fromTo $item]
+            }
+            foreach node $selected {
+                set oldText [.f.tvList item $node -text]
+                set index 0
+                set maxIndex 0
+                set maxLength 0
+                foreach attempt $patterns {
+                    if {[string match [string cat $attempt "*"] $oldText]} {
+                        set length [string length [lindex $tagOptions $index]]
+                        set maxLength [::tcl::mathfunc::max $length $maxLength]
+                        set maxIndex $index
+                    }
+                    incr index
+                }
+                set nextIndex [expr {(1 + $maxIndex) % [llength $tagOptions]}]
+                set untagged [string range $oldText $maxLength end]
+                set tagged [string cat [lindex $tagOptions $nextIndex] $untagged]
+                .f.tvList item $node -text $tagged
+            }
             .f.tvList tag add modded $selected
-            Selection::insert $text2
+            ListFileIO::saveFile
         }
         return
+    }
+
+    proc tagOptionsList {} {
+        global Prefs
+        variable tagLegend
+        set tagOptions $Prefs(tagKeyCustom)
+        foreach {name legend} $Selection::tagLegend {
+            if {$name eq "custom"} {
+                break
+            } elseif {$name eq $Prefs(tagKey)} {
+                set tagOptions $legend
+                break
+            }
+        }
+        set result {""}
+        foreach item [split $tagOptions "\/"] {
+            lappend result [string cat $item " "]
+        }
+        return $result
     }
 
     proc VerticalMove {offset} {
@@ -2188,6 +2253,9 @@ namespace eval StatusBar {
 
             if {$Treeview::buffer(find) ne {}} {
                 lappend gauges "find: \"$Treeview::buffer(find)\""
+            } else {
+                set tagslist [lrange [Selection::tagOptionsList] 1 end]
+                lappend gauges [string cat "tags: " [join $tagslist "/ "]]
             }
 
             set statusMsg [join $gauges "      "]
@@ -2651,12 +2719,12 @@ Help::bindTip . <Insert>                  {Gui::listMode Selection::insert} "Ins
 Help::bindTip .f.tvList <Return>          {Gui::listMode Selection::edit} "Edit selected list item"
 Help::bindTip .f.tvList <Delete>          {Gui::listMode Selection::delete} "Remove selected item"
 Help::bindTip .f.tvList a                 {Gui::listMode Selection::arrange} "Arrangements sort cycle: upward, downward, random"
-Help::bindTip .f.tvList b                 {Gui::listMode Selection::boxes} "Box options cycle: none, empty, checked"
+Help::bindTip .f.tvList t                 {Gui::listMode Selection::tagKey} "Tag cycle through null and configured options"
 Help::bindTip .f.tvList z                 {Gui::listMode zeroize} "Reset session statistics to zero"
 Help::bindTip .f.tvList =                 {Gui::listMode Selection::duplicate} "Duplicate selected item"
 Help::bindTip .f.tvList <Control-w>       {Gui::listMode Selection::web} "Web (Internet) access http address"
 Help::bindTip .f.tvList <Control-greater> {Gui::listMode Selection::join} "Join selected item with next item"
-Help::bindTip .lfEdit.t <Control-less>    {Selection::split} "Split edit item cursor to 2 items"
+Help::bindTip .lfEdit.t <Control-less>    {Selection::separate} "Split edit item cursor to 2 items"
 
 Help::bindTip .f.tvList <Shift-Up>        {Gui::listMode Selection::shiftUp} "Move selected item up one position"
 Help::bindTip .f.tvList <Shift-Down>      {Gui::listMode Selection::shiftDown} "Move selected item down one position"
@@ -2676,6 +2744,6 @@ bind .statusbar.badge <Leave> { StatusBar::show }
 
 ############################################################################
 #  hotkeys: abcdefghijklmnopqrstuvwxyz
-# assigned: abCCCC vCvvv  CCCC   CCC z
-#    Types: (a)rrange, (b)ox, (v)i navigation, (C)ontrol-? (z)eroize
+# assigned: a CCCC vCvvv  CCCC t CCC z
+#    Types: (a)rrange, (t)ag, (v)i navigation, (C)ontrol-? (z)eroize
 ############################################################################
