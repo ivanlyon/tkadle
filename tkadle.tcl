@@ -1076,14 +1076,10 @@ namespace eval Gui {
         variable mode
         if {$mode eq "EDIT"} {
             ChangeText $Treeview::buffer(edit)
-        } elseif {$mode eq "EXPORT"} {
-            toggleExport
         } elseif {$mode eq "LIST"} {
             .f.tvList selection set {}
-        } elseif {$mode eq "PREFERENCES"} {
-            toggleOptions
-        } elseif {$mode eq "REMOVED"} {
-            toggleRemoved
+        } elseif {$mode in {"EXPORT" "PREFERENCES" "REMOVED"}} {
+            toggleMode $mode
         } else {
             Gui::setMode "LIST"
             Search::Hide
@@ -1110,6 +1106,15 @@ namespace eval Gui {
         if {$operation ne ""} {
             $operation
         }
+        return true
+    }
+
+    proc nonEditMode2 {operation parameter} {
+        variable mode
+        if {$mode eq "EDIT"} {
+            return false
+        }
+        $operation $parameter
         return true
     }
 
@@ -1173,40 +1178,15 @@ namespace eval Gui {
         return
     }
 
-    proc toggleExport {} {
+    proc toggleMode {atMode} {
         variable mode
-        if {$mode eq "EXPORT"} {
+        if {$mode eq $atMode} {
             Gui::setMode "LIST"
             Treeview::focusOn [.f.tvList selection]
             StatusBar::show
             Preferences::save
         } elseif {$mode eq "LIST"} {
-            Gui::setMode "EXPORT"
-        }
-        return
-    }
-
-    proc toggleOptions {} {
-        variable mode
-        if {$mode eq "PREFERENCES"} {
-            Gui::setMode "LIST"
-            Treeview::focusOn [.f.tvList selection]
-            StatusBar::show
-            Preferences::save
-        } elseif {$mode eq "LIST"} {
-            Gui::setMode "PREFERENCES"
-        }
-        return
-    }
-
-    proc toggleRemoved {} {
-        variable mode
-        if {$mode eq "REMOVED"} {
-            Gui::setMode "LIST"
-            Treeview::focusOn [.f.tvList selection]
-            StatusBar::show
-        } elseif {$mode eq "LIST"} {
-            Gui::setMode "REMOVED"
+            Gui::setMode $atMode
         }
         return
     }
@@ -2753,12 +2733,12 @@ Help::bindTip . <Home>       {Gui::nonEditMode Navigation::homeKey} "Select firs
 Help::bindTip . <End>        {Gui::nonEditMode Navigation::endKey} "Select last list item"
 Help::bindTip . +            {Gui::nonEditMode Folding::levelOpen} "Expand one complete level of nodes"
 Help::bindTip . -            {Gui::nonEditMode Folding::levelClose} "Close one complete level of nodes"
-Help::bindTip . <Control-e>  {Gui::nonEditMode Gui::toggleExport} "Show/Hide export options"
+Help::bindTip . <Control-e>  {Gui::nonEditMode2 Gui::toggleMode "EXPORT"} "Show/Hide export options"
+Help::bindTip . <Control-d>  {Gui::nonEditMode2 Gui::toggleMode "REMOVED"} "Show/Hide list of deleted items"
+Help::bindTip . <Control-i>  {Gui::nonEditMode Preferences::reverseInsert} "Reverse insert direction"
+Help::bindTip . <Control-o>  {Gui::nonEditMode2 Gui::toggleMode "PREFERENCES"} "Show/Hide tkadle options"
 Help::bindTip . <Control-p>  {Gui::nonEditMode PreviewList} "Preview list in web browser"
 Help::bindTip . <Control-q>  {Gui::nonEditMode Endtkadle} "Exit tkadle"
-Help::bindTip . <Control-d>  {Gui::nonEditMode Gui::toggleRemoved} "Show/Hide list of deleted items"
-Help::bindTip . <Control-i>  {Gui::nonEditMode Preferences::reverseInsert} "Reverse insert direction"
-Help::bindTip . <Control-o>  {Gui::nonEditMode Gui::toggleOptions} "Show/Hide tkadle options"
 bind . <Up>                  {Gui::nonEditMode Navigation::selectPrev}
 bind . <Down>                {Gui::nonEditMode Navigation::selectNext}
 bind . <Tab>                 {Gui::nonEditMode TabDown}
