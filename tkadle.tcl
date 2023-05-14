@@ -259,6 +259,12 @@ oo::class create ADocFormat {
         set Prefs([my attName descriptions]) 0
         set Prefs([my attName indent]) 4
         set Prefs([my attName struct]) "*"
+        set Selection::tagLegend { \
+                checkbox "\[ \]/\[x\]" \
+                priority "_Low_/\*High\*" \
+                testing  "\[ \]/\[Fail\]/\[Pass\]" \
+                custom   "Use text entry contents" }
+
         return
     }
 
@@ -495,6 +501,11 @@ oo::class create MDFormat {
         set Prefs([my attName descriptions]) 0
         set Prefs([my attName indent]) 4
         set Prefs([my attName struct]) "*"
+        set Selection::tagLegend { \
+                checkbox "\[ \]/\[x\]" \
+                priority "\*Low\*/\*\*High\*\*" \
+                testing  "\[ \]/\[Fail\]/\[Pass\]" \
+                custom   "Use text entry contents" }
         return
     }
 
@@ -1802,12 +1813,12 @@ namespace eval Search {
 # Logical grouping of list edits for using selected treeview items.
 #----------------------------------------------------------------------------
 namespace eval Selection {
+    variable rootBGColor [. cget -background]
     variable tagLegend {
         checkbox "\[ \]/\[x\]" \
-        priority "**Low**/**High**" \
+        priority "LOW/HIGH" \
         testing  "\[ \]/\[Fail\]/\[Pass\]" \
         custom   "Use text entry contents" }
-    variable rootBGColor [. cget -background]
 
     proc allItems {} {
         set allTreeItems [list]
@@ -2500,7 +2511,7 @@ proc PreviewList {} {
     global openFile
     set targetFile [file rootname $ListFileIO::filename].html
     ListFileIO::saveFile 0
-    $openFile html $targetFile
+    after idle [$openFile html $targetFile]
     exec xdg-open $targetFile
     return
 }
