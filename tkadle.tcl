@@ -381,7 +381,7 @@ oo::class create ADocFormat {
 
                     if {$foundLevel >= 0} {
                         set foundDesc [string first $token $trimmed 0]
-                        set listItem [string range $trimmed 0 [expr {$foundDesc - 1}]] 
+                        set listItem [string range $trimmed 0 [expr {$foundDesc - 1}]]
                     }
                 }
             }
@@ -902,17 +902,17 @@ namespace eval Export {
         set fp [open $targetFile w]
             puts $fp "<html><head>"
             puts $fp "    <meta charset=\"utf-8\">"
-            puts $fp [format "<!-- %s -->" [SaveComment $targetFile]]
-            puts $fp [format "<title>%s</title>" [file tail $targetFile]]
-            puts $fp "<style type=\"text/css\">"
+            puts $fp [format "    <!-- %s -->" [SaveComment $targetFile]]
+            puts $fp [format "    <title>%s</title>" [file tail $targetFile]]
+            puts $fp "    <style type=\"text/css\">"
             if {$Prefs(exportParaStyle) eq "indent"} {
-                puts $fp "    p {"
-                puts $fp "        text-indent: 0.5in;"
-                puts $fp "        margin-bottom: 0;"
-                puts $fp "        margin-top: 0;"
-                puts $fp "    }"
+                puts $fp "        p {"
+                puts $fp "            text-indent: 0.5in;"
+                puts $fp "            margin-bottom: 0;"
+                puts $fp "            margin-top: 0;"
+                puts $fp "        }"
             }
-            puts $fp "</style>"
+            puts $fp "    </style>"
             puts $fp "</head>"
             puts $fp "<body>"
 
@@ -1070,7 +1070,7 @@ namespace eval Folding {
 # Reconfigure GUI appearance on demand.
 #----------------------------------------------------------------------------
 namespace eval Gui {
-    variable mode
+    variable mode "NONE"
 
     proc escapeKey {} {
         variable mode
@@ -1114,6 +1114,7 @@ namespace eval Gui {
     }
 
     proc setMode {newMode} {
+        global Prefs
         variable mode
         if {$mode eq $newMode} {
             return
@@ -1143,6 +1144,13 @@ namespace eval Gui {
                 pack .f.tvList -side left -expand yes -fill both
                 set lohi [.f.sList get]
                 ScrollbarOnDemand .f.sList [lindex $lohi 0] [lindex $lohi 1]
+                if {$Prefs(editAlways)} {
+                    if {$Prefs(editGrid) eq "above"} {
+                        grid .lfEdit -row 0 -column 0 -sticky ew
+                    } else {
+                        grid .lfEdit -row 2 -column 0 -sticky ew
+                    }
+                }
             }
             PREFERENCES {
                 Preferences::show
@@ -1153,7 +1161,11 @@ namespace eval Gui {
                 Deleted::status
             }
             EDIT {
-                grid .lfEdit -row 2 -column 0 -sticky ew
+                if {$Prefs(editGrid) eq "above"} {
+                    grid .lfEdit -row 0 -column 0 -sticky ew
+                } else {
+                    grid .lfEdit -row 2 -column 0 -sticky ew
+                }
                 StatusBar::show "Edit Item"
             }
         }
@@ -1483,6 +1495,19 @@ namespace eval Preferences {
         global Prefs
         set result [frame $parent.gui -padx 2 -pady 2]
 
+        labelframe $result.editor -text "Editor" -padx 2 -pady 2
+        pack $result.editor -side top -fill x -pady 4
+        labelframe $result.editor.loc -text "Location" -padx 2 -pady 2
+        set editLocation { above "Above list" below "Below list" }
+        foreach {name legend} $editLocation {
+            radiobutton $result.editor.loc.$name -text $legend -value $name \
+                    -anchor w -variable Prefs(editGrid)
+            pack $result.editor.loc.$name -side top -fill x
+        }
+        checkbutton $result.editor.visible -text "Always visible (Default: list item <Enter>)" \
+                -variable Prefs(editAlways)
+        grid $result.editor.loc $result.editor.visible -padx 2 -sticky n
+
         labelframe $result.changed -padx 2 -pady 2
         checkbutton $result.changed.cb -text "Highlight changed list items" \
                 -variable Prefs(changedShow) \
@@ -1561,6 +1586,8 @@ namespace eval Preferences {
         global ConfigFile Prefs openFile
         set Prefs(changedHilight) yellow
         set Prefs(changedShow) 1
+        set Prefs(editAlways) 0
+        set Prefs(editGrid) below
         set Prefs(exportHilight) #BFB
         set Prefs(exportNonParaBold) 0
         set Prefs(exportNonParagraph) 1
@@ -1800,6 +1827,7 @@ namespace eval Selection {
         priority "**Low**/**High**" \
         testing  "\[ \]/\[Fail\]/\[Pass\]" \
         custom   "Use text entry contents" }
+    variable rootBGColor [. cget -background]
 
     proc allItems {} {
         set allTreeItems [list]
@@ -1939,12 +1967,16 @@ namespace eval Selection {
     }
 
     proc edit {} {
+        global Prefs
         set selected [SingleItem edit]
         if {$selected ne {}} {
             Gui::setMode "EDIT"
             set Treeview::buffer(edit) [.f.tvList item $selected -text]
+            .lfEdit.t configure -state normal
             .lfEdit.t replace 1.0 end $Treeview::buffer(edit)
             .f.tvList item $selected -text "<!-- UNDER CONSTRUCTION -->"
+            bind .lfEdit.t <Return> {ChangeText [.lfEdit.t get 1.0 end]}
+            .lfEdit configure -text "Selected Item Editor" -background $Prefs(changedHilight)
             update
             .f.tvList see $selected
             .f.tvList state disabled
@@ -2094,7 +2126,7 @@ namespace eval Selection {
         set selected [.f.tvList selection]
         if {[llength $selected] == 1} {
             return $selected
-        } 
+        }
         StatusBar::show "Single item selection necessary for $legend"
         return {}
     }
@@ -2164,6 +2196,20 @@ namespace eval Selection {
                 ListFileIO::saveFile
             }
         }
+        return
+    }
+
+    proc viewItem {} {
+        variable rootBGColor
+        bind .lfEdit.t <Return> {}
+        .lfEdit configure -text "Selected Item Viewer" -background $rootBGColor
+        set selected [SingleItem edit]
+        if {$selected ne {}} {
+            .lfEdit.t configure -state normal
+            .lfEdit.t replace 1.0 end [.f.tvList item $selected -text]
+            .lfEdit.t configure -state disabled -takefocus 0
+        }
+        StatusBar::show
         return
     }
 
@@ -2572,7 +2618,6 @@ proc zeroize {{show true}} {
 #----------------------------------------------------------------------------
 # Commands
 #----------------------------------------------------------------------------
-
 package require Tk
 set ConfigFile "~/.tkadle"
 set delayID None
@@ -2591,6 +2636,12 @@ Preferences::load
 
 frame .f
 
+# Grid rows
+# 0: Edit/View window if "above"
+# 1: Treeview
+# 2: Edit/View window if "below"
+# 3: Status bar
+
 Search::gui
 
 ttk::treeview .f.tvList -show tree -yscrollcommand [list ScrollbarOnDemand .f.sList]
@@ -2598,18 +2649,17 @@ scrollbar .f.sList -command {.f.tvList yview}
 pack .f.tvList -side left -expand yes -fill both
 grid .f -row 1 -column 0 -sticky nsew
 
-Deleted::gui
-Export::gui
-Preferences::gui
-Preferences::changedColor
-
-labelframe .lfEdit -text "Selection Editor" -padx 3 -pady 1
+labelframe .lfEdit -text "Selected Item Viewer" -padx 3 -pady 1
 text .lfEdit.t -height 3 -yscrollcommand {.lfEdit.sEdit set} -wrap word
 scrollbar .lfEdit.sEdit -command {.lfEdit.t yview}
 pack .lfEdit.t -side left -fill x -expand yes
 pack .lfEdit.sEdit -side right -fill y
 bind .lfEdit.t <F1> help::dialog
-bind .lfEdit.t <Return> {ChangeText [.lfEdit.t get 1.0 end]}
+
+Deleted::gui
+Export::gui
+Preferences::gui
+Preferences::changedColor
 
 frame .statusbar
 label .statusbar.badge -relief sunken -borderwidth 2 -font {{Times Roman} 0 bold}
@@ -2630,7 +2680,7 @@ grid columnconfigure . 0 -weight 1
 #ttk::style configure styleCustom.$suffix -foreground green
 #.f.tvList configure -style "styleCustom.$suffix"
 
-set Gui::mode "LIST"
+Gui::setMode "LIST"
 Treeview::clear
 $openFile labelLogo .statusbar.badge
 
@@ -2736,8 +2786,8 @@ bind . <<Cut>>                            {Gui::listMode Selection::cut}
 bind . <<SelectAll>>                      {Gui::listMode Selection::allItems}
 bind . <<Paste>>                          {Gui::listMode PasteItems}
 
-bind .f.tvList <<TreeviewSelect>> StatusBar::show
-bind .f.lbDEL <<ListboxSelect>>   Deleted::status
+bind .f.tvList <<TreeviewSelect>>         {Gui::listMode Selection::viewItem}
+bind .f.lbDEL <<ListboxSelect>>           Deleted::status
 
 bind .statusbar.badge <Enter> { StatusBar::show "Interpreting Syntax: [$openFile getConstant legend]"}
 bind .statusbar.badge <Leave> { StatusBar::show }

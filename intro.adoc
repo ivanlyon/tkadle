@@ -1,8 +1,8 @@
-// tkadle tclversion:8.6 hostname:GT60 os:Linux user:robert 2023-05-03T13:46:13
+// tkadle tclversion:8.6 hostname:GT60 os:Linux user:robert 2023-05-14T09:16:13
 
 * To tkadle this file, use the command "tkadle.tcl -syn asciidoc intro.adoc"
 * To expand all folded items in tkadle, press "+" a few times
-* Keyboard arrow keys are the intended means of navigating the list
+* Keyboard arrow keys are an easy way to navigate the list
 * Press F1 to see tkadle help dialog
 * Alternate views of the tkadle gui
     ** <Control+D> displays the Deleted items per session (Empty at start)
@@ -14,7 +14,7 @@
         *** Example: line "include::intro.adoc[]" in another asciidoc file
 * Current limitations of tkadle
     ** No custom numbering of ordered lists
-    ** A tkadle input file must be dedicated to list syntax
+    ** A tkadle input file is interpreted as a list
     ** At this point, tkadle has only been tested and used by 1 person
     ** At this point, tkadle has not been ported beyond Linux
     ** The only way to save geometry is to save by <Control> + q
@@ -22,7 +22,7 @@
         *** Added a vertical offset in pixels to workaround this issue
 * Notable implementation decisions
     ** tkadle creates its own icon on-the-fly (Maybe there is a reason no one does this?)
-    ** tkadle automatically saves a list file after changes are made
+    ** tkadle automatically saves a list file after a change is detected
     ** Syntax emblems displayed on GUI are naive approximations
     ** List file syntax types were implemented as classes to enable previews
         *** A second object will be used to show a class's preview in Options
@@ -39,4 +39,3 @@
     ** Porting to Windows and MacOS
     ** Verify "Export" functionality is as cool as I think it is
     ** Slide show of (Every node with descendents) or (Every top level node)
-    ** Provide a quick view of elided list items (Balloon, or separate pane by hotkey)
