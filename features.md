@@ -14,9 +14,10 @@
     + Insert direction is changed by <Control> + Insert
 * A list can be searched for text and all found items will be selected
 * A (sub)list can rearrange in ascending, descending or random order by "a" key
-* Check boxes can be added, checked, and removed with the "b" key
+* Tags (Such as check boxes) can be added, checked, and removed with the "t" key
 * An item can be selected with arrow keys or by mouse click
 * List file is automatically saved when tkadle is idle (To prevent memory thrashing)
 * Escape key can be used to return to list view from any alternate view
 * List file syntax glyphs and indentation may be modified (Using Options view)
 * Copy & paste text from/to tkadle using <Control> + C and V
+* When configured, a persistent window can completely display an elided list item
