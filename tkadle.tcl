@@ -1813,7 +1813,6 @@ namespace eval Search {
 # Logical grouping of list edits for using selected treeview items.
 #----------------------------------------------------------------------------
 namespace eval Selection {
-    variable rootBGColor [. cget -background]
     variable tagLegend {
         checkbox "\[ \]/\[x\]" \
         priority "LOW/HIGH" \
@@ -1967,7 +1966,8 @@ namespace eval Selection {
             .lfEdit.t replace 1.0 end $Treeview::buffer(edit)
             .f.tvList item $selected -text "<!-- UNDER CONSTRUCTION -->"
             bind .lfEdit.t <Return> {ChangeText [.lfEdit.t get 1.0 end]}
-            .lfEdit configure -text "Selected Item Editor" -background $Prefs(changedHilight)
+            .lfEdit configure -text "Selected Item Editor" \
+                    -background $Prefs(changedHilight) -foreground [.lfEdit.t cget -foreground]
             update
             .f.tvList see $selected
             .f.tvList state disabled
@@ -2191,9 +2191,10 @@ namespace eval Selection {
     }
 
     proc viewItem {} {
-        variable rootBGColor
         bind .lfEdit.t <Return> {}
-        .lfEdit configure -text "Selected Item Viewer" -background $rootBGColor
+        set bgcolor [ttk::style lookup Treeview -background selected]
+        set fgcolor [ttk::style lookup Treeview -foreground selected]
+        .lfEdit configure -text "Selected Item Viewer" -background $bgcolor -foreground $fgcolor
         set selected [SingleItem edit]
         if {$selected ne {}} {
             .lfEdit.t configure -state normal
