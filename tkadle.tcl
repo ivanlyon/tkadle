@@ -2778,7 +2778,7 @@ Help::bindTip . <Insert>                  {Gui::listMode Selection::insert} "Ins
 Help::bindTip .f.tvList <Return>          {Gui::listMode Selection::edit} "Edit selected list item"
 Help::bindTip .f.tvList <Delete>          {Gui::listMode Selection::delete} "Remove selected item"
 Help::bindTip .f.tvList a                 {Gui::listMode Selection::arrange} "Arrangements sort cycle: upward, downward, random"
-Help::bindTip .f.tvList s                 {Gui::listMode Selection::showAlways} "Show cycle of expanded view for selected items"
+Help::bindTip .         s                 {Gui::listMode Selection::showAlways} "Show cycle of expanded view for selected items"
 Help::bindTip .f.tvList t                 {Gui::listMode Selection::tagKey} "Tag cycle through null and configured options"
 Help::bindTip .f.tvList z                 {Gui::listMode zeroize} "Reset session statistics to zero"
 Help::bindTip .f.tvList =                 {Gui::listMode Selection::duplicate} "Duplicate selected item"
