@@ -1089,6 +1089,9 @@ namespace eval Gui {
             ChangeText $Treeview::buffer(edit)
         } elseif {$mode eq "LIST"} {
             .f.tvList selection set {}
+            .lfEdit.t configure -state normal
+            .lfEdit.t replace 1.0 end ""
+            .lfEdit.t configure -state disabled
         } elseif {$mode in {"EXPORT" "PREFERENCES" "REMOVED"}} {
             toggleMode $mode
         } else {
@@ -1486,18 +1489,16 @@ namespace eval Preferences {
         global Prefs
         set result [frame $parent.gui -padx 2 -pady 2]
 
-        labelframe $result.editor -text "Editor" -padx 2 -pady 2
-        pack $result.editor -side top -fill x -pady 4
-        labelframe $result.editor.loc -text "Location" -padx 2 -pady 2
-        set editLocation { above "Above list" below "Below list" }
-        foreach {name legend} $editLocation {
-            radiobutton $result.editor.loc.$name -text $legend -value $name \
-                    -anchor w -variable Prefs(editGrid)
-            pack $result.editor.loc.$name -side top -fill x
+        labelframe $result.nav -text "Navigation key options" -padx 2 -pady 2
+        label $result.nav.arrows -anchor w -background grey95\
+                -text "Arrow keys enabled: \u2191\u2190\u2193\u2192"
+        pack $result.nav.arrows -side top -fill x
+        foreach {val legend caption} {khjl vi "Editor movement keys \"khjl\""} {
+            checkbutton $result.nav.$val -text "$legend ($caption)" \
+                    -anchor w -variable Prefs($val) -command {Preferences::NavKeys}
+            pack $result.nav.$val -side top -fill x
         }
-        checkbutton $result.editor.visible -text "Always visible (Default: list item <Enter>)" \
-                -variable Prefs(editAlways)
-        grid $result.editor.loc $result.editor.visible -padx 2 -sticky n
+        pack $result.nav -side top -fill x -pady 4
 
         labelframe $result.changed -padx 2 -pady 2
         checkbutton $result.changed.cb -text "Highlight changed list items" \
@@ -1543,6 +1544,16 @@ namespace eval Preferences {
         }
         pack $result.sort -side top -fill x -pady 4
 
+        labelframe $result.show -text "(s)how expanded selection options" -padx 2 -pady 2
+        set editLocation { above "Above list" \
+                           below "Below list" }
+        foreach {name legend} $editLocation {
+            radiobutton $result.show.$name -text $legend -value $name \
+                    -anchor w -variable Prefs(editGrid)
+            pack $result.show.$name -side top -fill x
+        }
+        pack $result.show -side top -fill x -pady 4
+
         labelframe $result.tagk -text "(t)ag key options" -padx 2 -pady 2
         label $result.tagk.note -text "Every non-null tag will be written to file with 1 space appended" -anchor w
         pack $result.tagk.note -side top -fill x
@@ -1558,17 +1569,6 @@ namespace eval Preferences {
         pack $result.tagk.customL -side left
         pack $result.tagk.customE -side left -fill x
         pack $result.tagk -side top -fill x -pady 4
-
-        labelframe $result.nav -text "Navigation key options" -padx 2 -pady 2
-        label $result.nav.arrows -anchor w -background grey95\
-                -text "Arrow keys enabled: \u2191\u2190\u2193\u2192"
-        pack $result.nav.arrows -side top -fill x
-        foreach {val legend caption} {khjl vi "Editor movement keys \"khjl\""} {
-            checkbutton $result.nav.$val -text "$legend ($caption)" \
-                    -anchor w -variable Prefs($val) -command {Preferences::NavKeys}
-            pack $result.nav.$val -side top -fill x
-        }
-        pack $result.nav -side top -fill x -pady 4
 
         return $result
     }
@@ -2110,6 +2110,23 @@ namespace eval Selection {
     proc shiftUp {} {
         VerticalMove -1
         event generate .f.tvList <Down>
+        return
+    }
+
+    proc showAlways {} {
+        global Prefs
+        set Prefs(editAlways) [expr {!$Prefs(editAlways)}]
+        if {$Prefs(editAlways)} {
+            if {$Prefs(editGrid) eq "above"} {
+                grid .lfEdit -row 0 -column 0 -sticky ew
+            } else {
+                grid .lfEdit -row 2 -column 0 -sticky ew
+            }
+        } else {
+            grid remove .lfEdit
+        }
+        Preferences::save
+
         return
     }
 
@@ -2761,6 +2778,7 @@ Help::bindTip . <Insert>                  {Gui::listMode Selection::insert} "Ins
 Help::bindTip .f.tvList <Return>          {Gui::listMode Selection::edit} "Edit selected list item"
 Help::bindTip .f.tvList <Delete>          {Gui::listMode Selection::delete} "Remove selected item"
 Help::bindTip .f.tvList a                 {Gui::listMode Selection::arrange} "Arrangements sort cycle: upward, downward, random"
+Help::bindTip .f.tvList s                 {Gui::listMode Selection::showAlways} "Show cycle of expanded view for selected items"
 Help::bindTip .f.tvList t                 {Gui::listMode Selection::tagKey} "Tag cycle through null and configured options"
 Help::bindTip .f.tvList z                 {Gui::listMode zeroize} "Reset session statistics to zero"
 Help::bindTip .f.tvList =                 {Gui::listMode Selection::duplicate} "Duplicate selected item"
@@ -2786,6 +2804,6 @@ bind .statusbar.badge <Leave> { StatusBar::show }
 
 ############################################################################
 #  hotkeys: abcdefghijklmnopqrstuvwxyz
-# assigned: a CCCC vCvvv  CCCC t CCC z
-#    Types: (a)rrange, (t)ag, (v)i navigation, (C)ontrol-? (z)eroize
+# assigned: a CCCC vCvvv  CCCCst CCC z
+#    Types: (a)rrange (s)how (t)ag (v)i navigation (z)eroize (C)ontrol-?
 ############################################################################
