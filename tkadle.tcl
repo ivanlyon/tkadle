@@ -1500,6 +1500,16 @@ namespace eval Preferences {
         }
         pack $result.nav -side top -fill x -pady 4
 
+        labelframe $result.sel -text "Selected item position status" -padx 2 -pady 2
+        set selectPos { coordinate "Coordinates" \
+                        ordinate   "Ordinate" }
+        foreach {name legend} $selectPos {
+            radiobutton $result.sel.$name -text $legend -value $name \
+                    -anchor w -variable Prefs(selectPosition)
+            pack $result.sel.$name -side top -fill x
+        }
+        pack $result.sel -side top -fill x -pady 4
+
         labelframe $result.changed -padx 2 -pady 2
         checkbutton $result.changed.cb -text "Highlight changed list items" \
                 -variable Prefs(changedShow) \
@@ -1593,6 +1603,7 @@ namespace eval Preferences {
         set Prefs(guiOffsetY) 27
         set Prefs(insertDest) after
         set Prefs(khjl) 0
+        set Prefs(selectPosition) ordinate
         set Prefs(sort) dictionary
         set Prefs(tagKey) checkbox
         set Prefs(tagKeyCustom) "=/+/-"
@@ -2260,24 +2271,78 @@ namespace eval StatusBar {
         return $theCount
     }
 
+    proc RevectorTv {target parentID atList atLevel} {
+        variable Changed
+        set levelCount 0
+        set nextLevel [expr {1 + $atLevel}]
+        foreach searching [.f.tvList children $parentID] {
+            incr levelCount
+            set searchList [list {*}$atList $levelCount]
+            if {$target eq $searching} {
+                set Treeview::buffer(selection) $searchList
+            }
+            if {[.f.tvList tag has modded $searching]} {
+                incr Changed
+            }
+            RevectorTv $target $searching $searchList $nextLevel
+        }
+
+        if {$levelCount} {
+            while {[llength $Treeview::buffer(totals)] < $nextLevel} {
+                lappend Treeview::buffer(totals) 0
+            }
+            set summed [lindex $Treeview::buffer(totals) $atLevel]
+            lset Treeview::buffer(totals) $atLevel [expr {$summed + $levelCount}]
+        }
+        return
+    }
+
+    proc SelectedID {selected} {
+        global Prefs
+
+        set prefix [format "%d" [llength $selected]]
+        if {$prefix eq "0"} {
+            set prefix "-"
+        }
+
+        if {$Prefs(selectPosition) eq "ordinate"} {
+            RenumberTv $selected {} 0
+            set suffix [array size Treeview::ItemID]
+        } else {
+            set Treeview::buffer(coordinates) {}
+            set Treeview::buffer(totals) {}
+            RevectorTv $selected {} {} 0
+            if {$prefix eq "1"} {
+                set prefix [format "%s" [join $Treeview::buffer(selection) "."]]
+            } elseif {$prefix ne "-"} {
+                set prefix [string cat "(" $prefix ")"]
+            }
+            set suffix [format "%s" [join $Treeview::buffer(totals) "."]]
+        }
+
+        return "selected: $prefix of $suffix"
+    }
+
     proc show {{statusMsg "default"}} {
         global delayID Prefs stats
         variable Changed
         set Changed 0
         if {$statusMsg eq "default"} {
             set selected [.f.tvList selection]
-            if {[llength $selected] == 1} {
-                set Treeview::buffer(selection) 0
-                RenumberTv $selected {} 0
-                set prefix [format "%s" [Suffixed $Treeview::buffer(selection)]]
+            set gauges [list [SelectedID $selected]]
+
+            if {$Prefs(insertDest) eq "before"} {
+                set ins "INS\u2191"
             } else {
-                RenumberTv {} {} 0
-                if {$selected eq {}} {
-                    set prefix "-"
-                } else {
-                    set prefix [format "%d" [llength $selected]]
-                }
+                set ins "INS\u2193"
             }
+            lappend gauges $ins
+
+            if {$Gui::mode eq "EDIT"} {
+                incr Changed
+            }
+            lappend gauges [format "\u2212%d +%d \u0394%d" $stats(removed) \
+                    $stats(added) [expr {$Changed - $stats(added)}]]
 
             if {$Treeview::buffer(find) ne ""} {
                 set found 0
@@ -2292,20 +2357,6 @@ namespace eval StatusBar {
                     set Treeview::buffer(find) ""
                 }
             }
-
-            set selections "selected: $prefix of [array size Treeview::ItemID]"
-            if {$Prefs(insertDest) eq "before"} {
-                set ins "INS\u2191"
-            } else {
-                set ins "INS\u2193"
-            }
-            set gauges [list $selections $ins]
-            if {$Gui::mode eq "EDIT"} {
-                incr Changed
-            }
-            lappend gauges [format "\u2212%d +%d \u0394%d" $stats(removed) \
-                    $stats(added) [expr {$Changed - $stats(added)}]]
-
             if {$Treeview::buffer(find) ne {}} {
                 lappend gauges "find: \"$Treeview::buffer(find)\""
             } else {
