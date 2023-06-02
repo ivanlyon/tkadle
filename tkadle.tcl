@@ -1603,7 +1603,7 @@ namespace eval Preferences {
         set Prefs(guiOffsetY) 27
         set Prefs(insertDest) after
         set Prefs(khjl) 0
-        set Prefs(selectPosition) ordinate
+        set Prefs(selectPosition) coordinate
         set Prefs(sort) dictionary
         set Prefs(tagKey) checkbox
         set Prefs(tagKeyCustom) "=/+/-"
@@ -2138,6 +2138,14 @@ namespace eval Selection {
                 grid .lfEdit -row 0 -column 0 -sticky ew
             } else {
                 grid .lfEdit -row 2 -column 0 -sticky ew
+            }
+            update
+
+            set selected [.f.tvList selection]
+            if {[llength $selected] == 1} {
+                .f.tvList see $selected
+            } else {
+                # clear text...when dedicated namespace is created
             }
         } else {
             grid remove .lfEdit
