@@ -1,25 +1,27 @@
-// tkadle tclversion:8.6 hostname:GT60 os:Linux user:robert 2023-05-14T09:16:13
+// tkadle tclversion:8.6 hostname:GT60 os:Linux user:robert 2023-06-01T21:09:32
 
 * To tkadle this file, use the command "tkadle.tcl -syn asciidoc intro.adoc"
 * To expand all folded items in tkadle, press "+" a few times
 * Keyboard arrow keys are an easy way to navigate the list
-* Press F1 to see tkadle help dialog
+* Press F1 to see tkadle help
 * Alternate views of the tkadle gui
     ** <Control+D> displays the Deleted items per session (Empty at start)
-    ** <Control+E> displays the Export view
+    ** <Control+E> displays the Export view. Export creates HTML page displaying list.
     ** <Control+O> displays the Options view
+    ** "s" toggle displays a selected item viewer
 * Possible use cases for tkadle
     ** Regular editing of a todo list (Especially as a startup application)
     ** Editing of lists in larger asciidoc to be accessed by "include" commands
         *** Example: line "include::intro.adoc[]" in another asciidoc file
 * Current limitations of tkadle
     ** No custom numbering of ordered lists
-    ** A tkadle input file is interpreted as a list
-    ** At this point, tkadle has only been tested and used by 1 person
-    ** At this point, tkadle has not been ported beyond Linux
-    ** The only way to save geometry is to save by <Control> + q
+    ** tkadle has only been tested and used by 1 person
+    ** tkadle has not been ported beyond Linux
+    ** The only way to save geometry is to save by <Control+Q>
+    ** Concurrent tkadle programs use the same configuration file
     ** Geometry save between application instantiations is inaccurate due to OS window frame sizing
         *** Added a vertical offset in pixels to workaround this issue
+        *** Current workaround causes concurrent tkadle programs to start in same location
 * Notable implementation decisions
     ** tkadle creates its own icon on-the-fly (Maybe there is a reason no one does this?)
     ** tkadle automatically saves a list file after a change is detected
@@ -36,6 +38,7 @@
     ** Custom color schemes (Already tried, but empty treeview space is always white)
     ** Custom fonts (Somebody, somewhere, is going to ask for monospace)
     ** Create tests?
+    ** Create tutorial
     ** Porting to Windows and MacOS
     ** Verify "Export" functionality is as cool as I think it is
     ** Slide show of (Every node with descendents) or (Every top level node)

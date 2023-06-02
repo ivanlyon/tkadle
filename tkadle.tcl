@@ -1930,12 +1930,18 @@ namespace eval Selection {
                 }
             }
 
+            foreach i $selected {
+                if {[.f.tvList tag has modded $i]} {
+                    incr stats(added) -1
+                } else {
+                    incr stats(removed)
+                }
+            }
             Deleted::archiveItems $selected
             .f.tvList delete $selected
             foreach i [array names Treeview::ItemID] {
                 if {[.f.tvList exists $Treeview::ItemID($i)] == 0} {
                     array unset Treeview::ItemID $i
-                    incr stats(removed)
                 }
             }
             ListFileIO::saveFile
@@ -2299,6 +2305,8 @@ namespace eval StatusBar {
 
     proc SelectedID {selected} {
         global Prefs
+        variable Changed
+        set Changed 0
 
         set prefix [format "%d" [llength $selected]]
         if {$prefix eq "0"} {
@@ -2326,7 +2334,6 @@ namespace eval StatusBar {
     proc show {{statusMsg "default"}} {
         global delayID Prefs stats
         variable Changed
-        set Changed 0
         if {$statusMsg eq "default"} {
             set selected [.f.tvList selection]
             set gauges [list [SelectedID $selected]]
