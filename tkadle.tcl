@@ -1086,12 +1086,10 @@ namespace eval Gui {
     proc escapeKey {} {
         variable mode
         if {$mode eq "EDIT"} {
-            ChangeText $Treeview::buffer(edit)
+            ItemPane::changeText $Treeview::buffer(edit)
         } elseif {$mode eq "LIST"} {
             .f.tvList selection set {}
-            .lfEdit.t configure -state normal
-            .lfEdit.t replace 1.0 end ""
-            .lfEdit.t configure -state disabled
+            ItemPane::clear disabled
         } elseif {$mode in {"EXPORT" "PREFERENCES" "REMOVED"}} {
             toggleMode $mode
         } else {
@@ -1153,7 +1151,7 @@ namespace eval Gui {
             Preferences::hide
         }
         if {$newMode ne "EDIT"} {
-            grid remove .lfEdit
+            ItemPane::hide
         }
         switch -exact -- $newMode {
             EXPORT {
@@ -1164,11 +1162,7 @@ namespace eval Gui {
                 set lohi [.f.sList get]
                 ScrollbarOnDemand .f.sList [lindex $lohi 0] [lindex $lohi 1]
                 if {$Prefs(editAlways)} {
-                    if {$Prefs(editGrid) eq "above"} {
-                        grid .lfEdit -row 0 -column 0 -sticky ew
-                    } else {
-                        grid .lfEdit -row 2 -column 0 -sticky ew
-                    }
+                    ItemPane::show
                 }
             }
             PREFERENCES {
@@ -1180,11 +1174,7 @@ namespace eval Gui {
                 Deleted::status
             }
             EDIT {
-                if {$Prefs(editGrid) eq "above"} {
-                    grid .lfEdit -row 0 -column 0 -sticky ew
-                } else {
-                    grid .lfEdit -row 2 -column 0 -sticky ew
-                }
+                ItemPane::show
                 StatusBar::show "Edit Item"
             }
         }
@@ -1281,6 +1271,138 @@ namespace eval Help {
         }
 
         return $ksymbol
+    }
+}
+
+#----------------------------------------------------------------------------
+# Variables and procs for list file input/output operations regarding
+#----------------------------------------------------------------------------
+namespace eval ItemPane {
+    proc changeText {newText} {
+        set selIndex [.f.tvList selection]
+        if {[.lfEdit.t edit modified]} {
+            regsub -all {[\r\n]} $newText "" contentNew
+            if {$contentNew ne $Treeview::buffer(edit)} {
+                .f.tvList tag add modded $selIndex
+            }
+            .f.tvList item $selIndex -text $contentNew
+            ListFileIO::saveFile
+        }
+
+        .f.tvList selection toggle $selIndex
+        .lfEdit.t replace 1.0 end ""
+        .f.tvList state !disabled
+        Gui::setMode "LIST"
+        Treeview::focusOn $selIndex
+        StatusBar::show
+        return
+    }
+
+    proc clear {endState} {
+        .lfEdit.t configure -state normal
+        .lfEdit.t replace 1.0 end ""
+        .lfEdit.t configure -state $endState
+        return
+    }
+
+    proc edit {} {
+        global Prefs
+        set selected [Selection::SingleItem edit]
+        if {$selected ne {}} {
+            Gui::setMode "EDIT"
+            set Treeview::buffer(edit) [.f.tvList item $selected -text]
+            .lfEdit.t configure -state normal
+            .lfEdit.t replace 1.0 end $Treeview::buffer(edit)
+            .f.tvList item $selected -text "<!-- UNDER CONSTRUCTION -->"
+            bind .lfEdit.t <Return> {ItemPane::changeText [.lfEdit.t get 1.0 end]}
+            .lfEdit configure -text "Selected Item Editor" \
+                    -background $Prefs(changedHilight) -foreground [.lfEdit.t cget -foreground]
+            update
+            .f.tvList see $selected
+            .f.tvList state disabled
+            .lfEdit.t mark set insert end
+            after idle focus -force .lfEdit.t
+        }
+        return
+    }
+
+    proc gui {} {
+        labelframe .lfEdit -text "Item Viewer" -padx 3 -pady 1
+        text .lfEdit.t -height 3 -yscrollcommand {.lfEdit.sEdit set} -wrap word
+        scrollbar .lfEdit.sEdit -command {.lfEdit.t yview}
+        pack .lfEdit.t -side left -fill x -expand yes
+        pack .lfEdit.sEdit -side right -fill y
+        bind .lfEdit.t <F1> help::dialog
+        return
+    }
+
+    proc hide {} {
+        grid remove .lfEdit
+        return
+    }
+
+    proc separate {} {
+        set selected [Selection::SingleItem ItemPane::edit]
+        if {$selected ne {}} {
+            set text1 [.lfEdit.t get 1.0 insert]
+            set text2 [.lfEdit.t get insert end]
+            if {($text1 eq "") || ($text2 eq "")} {
+                tk_messageBox -icon error -type ok -message "Error" \
+                    -detail "Empty string result detected.\nText not separated."
+            } else {
+                ItemPane::changeText $text1
+                .f.tvList selection set $selected
+                .f.tvList tag add modded $selected
+                Selection::insert $text2
+            }
+        }
+        return
+    }
+
+    proc show {} {
+        global Prefs
+        if {$Prefs(editGrid) eq "above"} {
+            grid .lfEdit -row 0 -column 0 -sticky ew
+        } else {
+            grid .lfEdit -row 2 -column 0 -sticky ew
+        }
+        return
+    }
+
+    proc toggle {} {
+        global Prefs
+        set Prefs(editAlways) [expr {!$Prefs(editAlways)}]
+        if {$Prefs(editAlways)} {
+            ItemPane::show
+            update
+
+            set selected [.f.tvList selection]
+            if {[llength $selected] == 1} {
+                .f.tvList see $selected
+            } else {
+                ItemPane::clear disabled
+            }
+        } else {
+            ItemPane::hide
+        }
+        Preferences::save
+
+        return
+    }
+
+    proc viewItem {} {
+        bind .lfEdit.t <Return> {}
+        set bgcolor [ttk::style lookup Treeview -background selected]
+        set fgcolor [ttk::style lookup Treeview -foreground selected]
+        .lfEdit configure -text "Selected Item Viewer" -background $bgcolor -foreground $fgcolor
+        set selected [Selection::SingleItem edit]
+        if {$selected ne {}} {
+            .lfEdit.t configure -state normal
+            .lfEdit.t replace 1.0 end [.f.tvList item $selected -text]
+            .lfEdit.t configure -state disabled -takefocus 0
+        }
+        StatusBar::show
+        return
     }
 }
 
@@ -1973,27 +2095,6 @@ namespace eval Selection {
         return
     }
 
-    proc edit {} {
-        global Prefs
-        set selected [SingleItem edit]
-        if {$selected ne {}} {
-            Gui::setMode "EDIT"
-            set Treeview::buffer(edit) [.f.tvList item $selected -text]
-            .lfEdit.t configure -state normal
-            .lfEdit.t replace 1.0 end $Treeview::buffer(edit)
-            .f.tvList item $selected -text "<!-- UNDER CONSTRUCTION -->"
-            bind .lfEdit.t <Return> {ChangeText [.lfEdit.t get 1.0 end]}
-            .lfEdit configure -text "Selected Item Editor" \
-                    -background $Prefs(changedHilight) -foreground [.lfEdit.t cget -foreground]
-            update
-            .f.tvList see $selected
-            .f.tvList state disabled
-            .lfEdit.t mark set insert end
-            after idle focus -force .lfEdit.t
-        }
-        return
-    }
-
     proc insert {{initialText ""}} {
         global Prefs
 
@@ -2016,7 +2117,7 @@ namespace eval Selection {
 
         set selected [.f.tvList selection]
         if {[llength $selected] == 1 && $initialText ne ""} {
-            ChangeText $initialText
+            ItemPane::changeText $initialText
             .f.tvList tag add modded $selected
         }
         return
@@ -2068,19 +2169,6 @@ namespace eval Selection {
         return
     }
 
-    proc separate {} {
-        set selected [SingleItem edit]
-        if {$selected ne {}} {
-            set text1 [.lfEdit.t get 1.0 insert]
-            set text2 [.lfEdit.t get insert end]
-            ChangeText $text1
-            .f.tvList selection set $selected
-            .f.tvList tag add modded $selected
-            Selection::insert $text2
-        }
-        return
-    }
-
     proc shiftDown {} {
         VerticalMove 1
         event generate .f.tvList <Up>
@@ -2127,31 +2215,6 @@ namespace eval Selection {
     proc shiftUp {} {
         VerticalMove -1
         event generate .f.tvList <Down>
-        return
-    }
-
-    proc showAlways {} {
-        global Prefs
-        set Prefs(editAlways) [expr {!$Prefs(editAlways)}]
-        if {$Prefs(editAlways)} {
-            if {$Prefs(editGrid) eq "above"} {
-                grid .lfEdit -row 0 -column 0 -sticky ew
-            } else {
-                grid .lfEdit -row 2 -column 0 -sticky ew
-            }
-            update
-
-            set selected [.f.tvList selection]
-            if {[llength $selected] == 1} {
-                .f.tvList see $selected
-            } else {
-                # clear text...when dedicated namespace is created
-            }
-        } else {
-            grid remove .lfEdit
-        }
-        Preferences::save
-
         return
     }
 
@@ -2229,21 +2292,6 @@ namespace eval Selection {
                 ListFileIO::saveFile
             }
         }
-        return
-    }
-
-    proc viewItem {} {
-        bind .lfEdit.t <Return> {}
-        set bgcolor [ttk::style lookup Treeview -background selected]
-        set fgcolor [ttk::style lookup Treeview -foreground selected]
-        .lfEdit configure -text "Selected Item Viewer" -background $bgcolor -foreground $fgcolor
-        set selected [SingleItem edit]
-        if {$selected ne {}} {
-            .lfEdit.t configure -state normal
-            .lfEdit.t replace 1.0 end [.f.tvList item $selected -text]
-            .lfEdit.t configure -state disabled -takefocus 0
-        }
-        StatusBar::show
         return
     }
 
@@ -2489,29 +2537,6 @@ namespace eval Treeview {
 }
 
 #----------------------------------------------------------------------------
-# Actions performed when text box is properly closed.
-#----------------------------------------------------------------------------
-proc ChangeText {newText} {
-    set selIndex [.f.tvList selection]
-    if {[.lfEdit.t edit modified]} {
-        regsub -all {[\r\n]} $newText "" contentNew
-        if {$contentNew ne $Treeview::buffer(edit)} {
-            .f.tvList tag add modded $selIndex
-        }
-        .f.tvList item $selIndex -text $contentNew
-        ListFileIO::saveFile
-    }
-
-    .f.tvList selection toggle $selIndex
-    .lfEdit.t replace 1.0 end ""
-    .f.tvList state !disabled
-    Gui::setMode "LIST"
-    Treeview::focusOn $selIndex
-    StatusBar::show
-    return
-}
-
-#----------------------------------------------------------------------------
 # End of tkadle execution.
 #----------------------------------------------------------------------------
 proc Endtkadle {} {
@@ -2724,13 +2749,7 @@ scrollbar .f.sList -command {.f.tvList yview}
 pack .f.tvList -side left -expand yes -fill both
 grid .f -row 1 -column 0 -sticky nsew
 
-labelframe .lfEdit -text "Selected Item Viewer" -padx 3 -pady 1
-text .lfEdit.t -height 3 -yscrollcommand {.lfEdit.sEdit set} -wrap word
-scrollbar .lfEdit.sEdit -command {.lfEdit.t yview}
-pack .lfEdit.t -side left -fill x -expand yes
-pack .lfEdit.sEdit -side right -fill y
-bind .lfEdit.t <F1> help::dialog
-
+ItemPane::gui
 Deleted::gui
 Export::gui
 Preferences::gui
@@ -2841,16 +2860,16 @@ Help::bindTip .f.lbDEL <Return> Deleted::returnItem "Return archived item to lis
 
 Help::bindTip . <Control-f>               {Gui::listMode Search::toggle} "Show/Hide search entry area"
 Help::bindTip . <Insert>                  {Gui::listMode Selection::insert} "Insert new item after selected list item"
-Help::bindTip .f.tvList <Return>          {Gui::listMode Selection::edit} "Edit selected list item"
+Help::bindTip .f.tvList <Return>          {Gui::listMode ItemPane::edit} "Edit selected list item"
 Help::bindTip .f.tvList <Delete>          {Gui::listMode Selection::delete} "Remove selected item"
 Help::bindTip .f.tvList a                 {Gui::listMode Selection::arrange} "Arrangements sort cycle: upward, downward, random"
-Help::bindTip .         s                 {Gui::listMode Selection::showAlways} "Show cycle of expanded view for selected items"
+Help::bindTip .         s                 {Gui::listMode ItemPane::toggle} "Show cycle of expanded view for selected items"
 Help::bindTip .f.tvList t                 {Gui::listMode Selection::tagKey} "Tag cycle through null and configured options"
 Help::bindTip .f.tvList z                 {Gui::listMode zeroize} "Reset session statistics to zero"
 Help::bindTip .f.tvList =                 {Gui::listMode Selection::duplicate} "Duplicate selected item"
 Help::bindTip .f.tvList <Control-w>       {Gui::listMode Selection::web} "Web (Internet) access http address"
 Help::bindTip .f.tvList <Control-greater> {Gui::listMode Selection::join} "Join selected item with next item"
-Help::bindTip .lfEdit.t <Control-less>    {Selection::separate} "Split edit item cursor to 2 items"
+Help::bindTip .lfEdit.t <Control-less>    {ItemPane::separate} "Split edit item cursor to 2 items"
 
 Help::bindTip .f.tvList <Shift-Up>        {Gui::listMode Selection::shiftUp} "Move selected item up one position"
 Help::bindTip .f.tvList <Shift-Down>      {Gui::listMode Selection::shiftDown} "Move selected item down one position"
@@ -2862,7 +2881,7 @@ bind . <<Cut>>                            {Gui::listMode Selection::cut}
 bind . <<SelectAll>>                      {Gui::listMode Selection::allItems}
 bind . <<Paste>>                          {Gui::listMode PasteItems}
 
-bind .f.tvList <<TreeviewSelect>>         {Gui::listMode Selection::viewItem}
+bind .f.tvList <<TreeviewSelect>>         {Gui::listMode ItemPane::viewItem}
 bind .f.lbDEL <<ListboxSelect>>           Deleted::status
 
 bind .statusbar.badge <Enter> { StatusBar::show "Interpreting Syntax: [$openFile getConstant legend]"}
