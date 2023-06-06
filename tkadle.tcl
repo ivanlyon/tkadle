@@ -1307,7 +1307,7 @@ namespace eval ItemPane {
 
     proc edit {} {
         global Prefs
-        set selected [Selection::SingleItem edit]
+        set selected [Selection::SingleItem "item edit"]
         if {$selected ne {}} {
             Gui::setMode "EDIT"
             set Treeview::buffer(edit) [.f.tvList item $selected -text]
@@ -1342,7 +1342,7 @@ namespace eval ItemPane {
     }
 
     proc separate {} {
-        set selected [Selection::SingleItem ItemPane::edit]
+        set selected [Selection::SingleItem "item separation"]
         if {$selected ne {}} {
             set text1 [.lfEdit.t get 1.0 insert]
             set text2 [.lfEdit.t get insert end]
@@ -1350,7 +1350,7 @@ namespace eval ItemPane {
                 tk_messageBox -icon error -type ok -message "Error" \
                     -detail "Empty string result detected.\nText not separated."
             } else {
-                ItemPane::changeText $text1
+                changeText $text1
                 .f.tvList selection set $selected
                 .f.tvList tag add modded $selected
                 Selection::insert $text2
@@ -1373,17 +1373,17 @@ namespace eval ItemPane {
         global Prefs
         set Prefs(editAlways) [expr {!$Prefs(editAlways)}]
         if {$Prefs(editAlways)} {
-            ItemPane::show
+            show
             update
 
             set selected [.f.tvList selection]
             if {[llength $selected] == 1} {
                 .f.tvList see $selected
             } else {
-                ItemPane::clear disabled
+                clear disabled
             }
         } else {
-            ItemPane::hide
+            hide
         }
         Preferences::save
 
@@ -1395,7 +1395,7 @@ namespace eval ItemPane {
         set bgcolor [ttk::style lookup Treeview -background selected]
         set fgcolor [ttk::style lookup Treeview -foreground selected]
         .lfEdit configure -text "Selected Item Viewer" -background $bgcolor -foreground $fgcolor
-        set selected [Selection::SingleItem edit]
+        set selected [Selection::SingleItem "item view"]
         if {$selected ne {}} {
             .lfEdit.t configure -state normal
             .lfEdit.t replace 1.0 end [.f.tvList item $selected -text]
@@ -2066,6 +2066,7 @@ namespace eval Selection {
                     array unset Treeview::ItemID $i
                 }
             }
+            ItemPane::clear disabled
             ListFileIO::saveFile
         }
         return
@@ -2164,7 +2165,7 @@ namespace eval Selection {
     proc NewTreeItem {parentIdx positionIdx} {
         set newItem [Treeview::itemCache [.f.tvList insert $parentIdx $positionIdx]]
         .f.tvList selection set $newItem
-        edit
+        ItemPane::edit
         .f.tvList see [.f.tvList selection]
         return
     }
